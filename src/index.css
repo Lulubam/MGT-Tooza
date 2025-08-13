@@ -1,0 +1,21 @@
+/* Modern CSS Reset */
+:root {
+  --card-table-green: #0a5f38;
+  --card-red: #d40000;
+  --card-black: #000;
+  --gold-accent: #daa520;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: radial-gradient(circle, var(--card-table-green) 0%, #083b24 100%);
+  min-height: 100vh;
+  color: white;
+  overflow-x: hidden;
+}
