@@ -1,52 +1,60 @@
-import React, { useState } from 'react';
-import { io } from 'socket.io-client';
-import GameLobby from './components/GameLobby';
-import GameTable from './components/GameTable';
-import './App.css';
-
-const socket = io('http://localhost:5000');
+import React, { useState, useEffect } from 'react';
+import { API_URL } from './config';
+import { socket, initSocket } from './socket';
+import './App.css'; // Your existing CSS
 
 function App() {
-  const [currentRoom, setCurrentRoom] = useState(null);
+  const [gameState, setGameState] = useState(null);
   const [player, setPlayer] = useState(null);
 
-  const handleJoin = (playerData) => {
-    const newPlayer = {
-      ...playerData,
-      id: Date.now().toString(),
-      rings: { gold: 0, platinum: 0, diamond: 0 }
+  // Initialize socket when component mounts
+  useEffect(() => {
+    initSocket();
+    socket.connect();
+
+    // Listen for game updates
+    socket.on('gameUpdate', (state) => setGameState(state));
+
+    return () => {
+      socket.off('gameUpdate');
+      socket.disconnect();
     };
-    
-    setPlayer(newPlayer);
-    
-    if (playerData.roomCode) {
-      socket.emit('joinRoom', { 
-        roomCode: playerData.roomCode,
-        player: newPlayer
+  }, []);
+
+  // Join room function
+  const joinRoom = async (playerName, roomCode) => {
+    try {
+      const response = await fetch(`${API_URL}/join-room`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerName, roomCode })
       });
-    } else {
-      socket.emit('createRoom', newPlayer);
+      const data = await response.json();
+      setPlayer(data.player);
+    } catch (err) {
+      console.error('Join room error:', err);
     }
-    
-    socket.on('roomCreated', (roomCode) => {
-      setCurrentRoom(roomCode);
-    });
-    
-    socket.on('roomUpdated', (room) => {
-      // Handle room updates
-    });
   };
 
   return (
-    <div className="app">
-      {!currentRoom ? (
-        <GameLobby onJoin={handleJoin} />
+    <div className="app-container">
+      {!player ? (
+        <div className="lobby">
+          <button onClick={() => joinRoom('Player1', 'ROOM123')}>
+            Join Test Room
+          </button>
+        </div>
       ) : (
-        <GameTable 
-          socket={socket} 
-          roomCode={currentRoom} 
-          player={player} 
-        />
+        <div className="game-table">
+          <h2>Room: {gameState?.roomCode}</h2>
+          <div className="cards">
+            {gameState?.players.map(p => (
+              <div key={p.id} className="player">
+                {p.name} ({p.cards?.length} cards)
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
