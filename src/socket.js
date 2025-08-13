@@ -5,20 +5,17 @@ const SOCKET_URL = 'https://mgt-toozabackend.onrender.com';
 export const socket = io(SOCKET_URL, {
   transports: ['websocket', 'polling'],
   withCredentials: true,
-  autoConnect: false, // Connect manually after auth
+  autoConnect: false,
   reconnectionAttempts: 5,
-  reconnectionDelay: 1000,
   auth: {
-    token: localStorage.getItem('jwt') || ''
+    token: localStorage.getItem('jwt')
   }
 });
 
-// Connection management
-export const connectSocket = () => {
+// Renamed to match what App.js expects
+export const initSocket = () => {
   socket.connect();
-};
-
-export const initSocketEvents = () => {
+  
   socket.on('connect', () => {
     console.log('Socket connected:', socket.id);
   });
