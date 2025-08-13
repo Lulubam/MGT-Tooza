@@ -1,23 +1,33 @@
 import { io } from 'socket.io-client';
 
-// Your existing socket instance
-export const socket = io('https://mgt-toozabackend.onrender.com', {
-  auth: {
-    token: localStorage.getItem('jwt') || document.cookie.replace(/(?:(?:^|.*;\s*)jwt\s*=\s*([^;]*).*$)|^.*$/, '$1')
-  },
+const SOCKET_URL = 'https://mgt-toozabackend.onrender.com';
+
+export const socket = io(SOCKET_URL, {
+  transports: ['websocket', 'polling'],
   withCredentials: true,
-  transports: ['websocket']
+  autoConnect: false, // Connect manually after auth
+  reconnectionAttempts: 5,
+  reconnectionDelay: 1000,
+  auth: {
+    token: localStorage.getItem('jwt') || ''
+  }
 });
 
-// Add this initialization function
-export const initSocket = () => {
+// Connection management
+export const connectSocket = () => {
+  socket.connect();
+};
+
+export const initSocketEvents = () => {
   socket.on('connect', () => {
     console.log('Socket connected:', socket.id);
   });
-  
-  socket.on('disconnect', () => {
-    console.log('Socket disconnected');
+
+  socket.on('disconnect', (reason) => {
+    console.log('Socket disconnected:', reason);
   });
-  
-  // Add other event listeners as needed
+
+  socket.on('connect_error', (err) => {
+    console.error('Connection error:', err.message);
+  });
 };
