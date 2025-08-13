@@ -1,3 +1,4 @@
+// src/socket.js
 import { io } from 'socket.io-client';
 
 const SOCKET_URL = 'https://mgt-toozabackend.onrender.com';
@@ -8,14 +9,12 @@ export const socket = io(SOCKET_URL, {
   autoConnect: false,
   reconnectionAttempts: 5,
   auth: {
-    token: localStorage.getItem('jwt')
+    token: localStorage.getItem('jwt') || ''
   }
 });
 
-// Renamed to match what App.js expects
-export const initSocket = () => {
-  socket.connect();
-  
+// Initialize socket events
+export const initSocketEvents = () => {
   socket.on('connect', () => {
     console.log('Socket connected:', socket.id);
   });
@@ -27,4 +26,9 @@ export const initSocket = () => {
   socket.on('connect_error', (err) => {
     console.error('Connection error:', err.message);
   });
+};
+
+// Connect to socket
+export const connectSocket = () => {
+  socket.connect();
 };
