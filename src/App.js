@@ -10,7 +10,7 @@ export default function App() {
 
   // Initialize socket
   useEffect(() => {
-    const newSocket = io('https://your-backend.onrender.com');
+    const newSocket = io('https://mgt-toozabackend.onrender.com');
     
     newSocket.on('game-state', (state) => {
       // Filter other players' cards
