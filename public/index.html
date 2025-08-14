@@ -7,6 +7,18 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/App.js"></script>
+    <!-- Production version (when using Create React App) -->
+    <script src="/static/js/main.[hash].js"></script>
+    
+    <!-- OR if using Vite -->
+    <script type="module" src="/src/main.jsx"></script>
+    
+    <!-- Development fallback -->
+    <script>
+      // Check if main.js loaded successfully
+      if (typeof app === 'undefined') {
+        console.error('Failed to load app bundle');
+      }
+    </script>
   </body>
 </html>
