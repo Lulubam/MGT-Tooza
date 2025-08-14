@@ -1,77 +1,62 @@
-import React, { useState, useEffect } from 'react';
-import { API_URL } from './config';
-import { socket, initSocketEvents, connectSocket } from './socket'; // Updated imports
-import './App.css';
+import { useState, useEffect } from 'react';
+import { io } from 'socket.io-client';
+import Lobby from './Lobby';
+import GameRoom from './GameRoom';
 
-function App() {
-  const [gameState, setGameState] = useState(null);
-  const [player, setPlayer] = useState(null);
+export default function App() {
+  const [socket, setSocket] = useState(null);
+  const [room, setRoom] = useState(null); // {code, players, yourHand}
+  const [player, setPlayer] = useState(null); // {id, name}
 
-  // Initialize socket connection and events
+  // Initialize socket
   useEffect(() => {
-    initSocketEvents(); // Initialize event listeners first
-    connectSocket(); // Then connect
-
-    socket.on('gameUpdate', (state) => {
-      console.log('Game state update:', state);
-      setGameState(state);
+    const newSocket = io('https://your-backend.onrender.com');
+    
+    newSocket.on('game-state', (state) => {
+      // Filter other players' cards
+      const filteredState = {
+        ...state,
+        players: state.players.map(p => ({
+          ...p,
+          cards: p.id === player?.id ? p.cards : [] // Hide others' cards
+        }))
+      };
+      setRoom(filteredState);
     });
 
-    return () => {
-      socket.off('gameUpdate');
-      socket.disconnect();
-    };
-  }, []);
+    setSocket(newSocket);
+    return () => newSocket.disconnect();
+  }, [player?.id]);
 
-  const joinRoom = async (playerName, roomCode) => {
-    try {
-      const response = await fetch(`${API_URL}/join-room`, {
-        method: 'POST',
-        credentials: 'include', // Needed for cookies
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jwt')}` // If using JWT
-        },
-        body: JSON.stringify({ playerName, roomCode })
+  const joinRoom = async (name, code, isCreating) => {
+    const endpoint = isCreating ? 'create-room' : 'join-room';
+    const res = await fetch(`https://your-backend.onrender.com/api/${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerName: name, roomCode: code })
+    });
+    
+    const data = await res.json();
+    if (data.success) {
+      setPlayer({ id: data.playerId, name });
+      socket.emit('join-game', { 
+        playerId: data.playerId, 
+        roomCode: data.roomCode 
       });
-
-      if (!response.ok) throw new Error('Join failed');
-      
-      const data = await response.json();
-      setPlayer(data.player);
-      
-      // Reconnect socket with auth token if needed
-      socket.auth.token = data.token || localStorage.getItem('jwt');
-      socket.connect();
-      
-    } catch (err) {
-      console.error('Join room error:', err);
-      alert(`Join failed: ${err.message}`);
     }
   };
 
   return (
-    <div className="app-container">
-      {!player ? (
-        <div className="lobby">
-          <button onClick={() => joinRoom('Player1', 'ROOM123')}>
-            Join Test Room
-          </button>
-        </div>
+    <div className="app">
+      {!room ? (
+        <Lobby onJoin={joinRoom} />
       ) : (
-        <div className="game-table">
-          <h2>Room: {gameState?.roomCode}</h2>
-          <div className="players">
-            {gameState?.players?.map(p => (
-              <div key={p.id} className={`player ${p.id === player.id ? 'you' : ''}`}>
-                {p.name} ({p.cards?.length} cards)
-              </div>
-            ))}
-          </div>
-        </div>
+        <GameRoom 
+          socket={socket} 
+          room={room} 
+          player={player} 
+        />
       )}
     </div>
   );
 }
-
-export default App;
