@@ -1,3 +1,5 @@
+import { useState } from 'react'; // Add this import
+
 export default function Lobby({ onJoin }) {
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
