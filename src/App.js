@@ -100,6 +100,7 @@ export default function App() {
   const [room, setRoom] = useState(null);
   const [player, setPlayer] = useState(null);
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     // Connect to the backend Socket.IO server
@@ -113,16 +114,17 @@ export default function App() {
     // Set up event listeners for the socket
     newSocket.on('connect', () => {
       console.log('Socket connected, transport:', newSocket.io.engine.transport.name);
+      setError(null); // Clear any previous errors on successful connection
     });
 
     newSocket.on('connect_error', (error) => {
       console.error('Socket connection error:', error.message);
-      setError('Failed to connect to server');
+      setError('Failed to connect to server. Please check the backend service.');
     });
 
     newSocket.on('reconnect_failed', () => {
       console.error('Reconnection failed after 3 attempts');
-      setError('Failed to reconnect to server');
+      setError('Failed to reconnect to server. Please refresh or try again later.');
     });
 
     newSocket.on('error', (error) => {
@@ -141,6 +143,7 @@ export default function App() {
         }))
       };
       setRoom(filteredState);
+      setLoading(false); // Stop loading once game state is received
     });
 
     setSocket(newSocket);
@@ -150,6 +153,7 @@ export default function App() {
 
   // Function to create a new room
   const createRoom = async (playerName) => {
+    setLoading(true);
     try {
       setError(null);
       const res = await fetch('https://mgt-toozabackend.onrender.com/api/create-room', {
@@ -166,18 +170,24 @@ export default function App() {
       if (data.success) {
         setPlayer({ _id: data.playerId, name: playerName });
         // After creating the room via HTTP, join it via WebSocket
-        socket.emit('join-game', { playerId: data.playerId, roomCode: data.roomCode });
+        if (socket) {
+          socket.emit('join-game', { playerId: data.playerId, roomCode: data.roomCode });
+        } else {
+          throw new Error('Socket not available');
+        }
       } else {
         throw new Error(data.error || 'Failed to create room');
       }
     } catch (error) {
       console.error('Create room error:', error.message);
-      setError(error.message);
+      setError(`Error creating room: ${error.message}. This might be a CORS issue on the backend.`);
+      setLoading(false);
     }
   };
 
   // Function to join an existing room
   const joinExistingRoom = async (playerName, roomCode) => {
+    setLoading(true);
     try {
       setError(null);
       const res = await fetch('https://mgt-toozabackend.onrender.com/api/join-room', {
@@ -194,13 +204,18 @@ export default function App() {
       if (data.success) {
         setPlayer({ _id: data.playerId, name: playerName });
         // After joining the room via HTTP, join it via WebSocket
-        socket.emit('join-game', { playerId: data.playerId, roomCode });
+        if (socket) {
+          socket.emit('join-game', { playerId: data.playerId, roomCode });
+        } else {
+          throw new Error('Socket not available');
+        }
       } else {
         throw new Error(data.error || 'Failed to join room');
       }
     } catch (error) {
       console.error('Join room error:', error.message);
-      setError(error.message);
+      setError(`Error joining room: ${error.message}. This might be a CORS issue on the backend.`);
+      setLoading(false);
     }
   };
 
@@ -215,8 +230,12 @@ export default function App() {
 
   return (
     <div className="app">
-      {error && <div className="error">{error}</div>}
-      {!room ? (
+      {error && <div className="bg-red-500 text-white p-4 text-center rounded-lg m-4">{error}</div>}
+      {loading ? (
+        <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white p-4">
+          <div className="text-center text-xl text-gray-400">Loading...</div>
+        </div>
+      ) : !room ? (
         <Lobby onJoin={handleJoinOrCreate} />
       ) : (
         <GameRoom
