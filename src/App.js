@@ -129,7 +129,7 @@ const App = () => {
   const [gameEnded, setGameEnded] = useState(false);
   const [gameWinner, setGameWinner] = useState(null);
 
-  const API_URL = import.meta.env.VITE_API_URL || 'https://mgt-toozabackend.onrender.com';
+  const API_URL = process.env.REACT_APP_API_URL || 'https://mgt-toozabackend.onrender.com';
 
   useEffect(() => {
     const newSocket = io(API_URL, {
