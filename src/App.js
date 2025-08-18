@@ -337,6 +337,19 @@ const Lobby = ({ onJoin }) => {
                 value={playerName}
                 onChange={(e) => setPlayerName(e.target.value)}
                 className="w-full p-3 rounded-lg border-2 border-gray-300 focus:ring-green-500 focus:border-green-500 transition-colors"
+                placeholder="Enter your name"
+                onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="roomCode" className="block text-sm font-medium text-gray-700 mb-2">Room Code (optional)</label>
+              <input
+                type="text"
+                id="roomCode"
+                value={roomCode}
+                onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                className="w-full p-3 rounded-lg border-2 border-gray-300 focus:ring-green-500 focus:border-green-500 transition-colors"
                 placeholder="Enter code to join existing room"
                 onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
               />
@@ -894,17 +907,4 @@ export default function App() {
       )}
     </div>
   );
-}-green-500 focus:border-green-500 transition-colors"
-                placeholder="Enter your name"
-                onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="roomCode" className="block text-sm font-medium text-gray-700 mb-2">Room Code (optional)</label>
-              <input
-                type="text"
-                id="roomCode"
-                value={roomCode}
-                onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                className="w-full p-3 rounded-lg border-2 border-gray-300 focus:ring
+}
