@@ -1,3 +1,118 @@
+// App.js - Fixed Frontend for Trick-Taking Card Game
+import { useState, useEffect } from 'react';
+import { io } from 'socket.io-client';
+
+// =========================================================================
+// AI Players Configuration
+// =========================================================================
+const AI_PLAYERS = {
+  'otu': { name: 'Otu', level: 'beginner', avatar: '🤖' },
+  'ase': { name: 'Ase', level: 'beginner', avatar: '🎭' },
+  'dede': { name: 'Dede', level: 'intermediate', avatar: '🎪' },
+  'ogbologbo': { name: 'Ogbologbo', level: 'advanced', avatar: '🎯' },
+  'agba': { name: 'Agba', level: 'advanced', avatar: '👑' }
+};
+
+// =========================================================================
+// Realistic Card Component
+// =========================================================================
+const Card = ({ card, onClick, disabled, selected, canPlay, inTrick = false }) => {
+  const suitColors = {
+    '♠': 'text-black',
+    '♣': 'text-black', 
+    '♥': 'text-red-600',
+    '♦': 'text-red-600'
+  };
+
+  const getCardValue = (card) => {
+    if (card.rank === '3' && card.suit === '♠') return '12pts';
+    if (card.rank === '3') return '6pts';
+    if (card.rank === '4') return '4pts';
+    if (card.rank === 'A') return '2pts';
+    return '';
+  };
+
+  const cardClasses = `
+    card
+    relative bg-white border-2 rounded-lg p-2 m-1 cursor-pointer
+    transition-all duration-200 shadow-md transform
+    ${selected ? 'ring-2 ring-blue-500 scale-105' : ''}
+    ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-lg hover:-translate-y-1 hover:border-blue-400'}
+    ${canPlay ? 'border-green-400 hover:border-green-600' : 'border-gray-300'}
+    ${inTrick ? 'transform-none' : ''}
+  `;
+
+  return (
+    <div 
+      className={cardClasses}
+      onClick={disabled ? null : onClick}
+      title={disabled ? 'Cannot play this card' : `Play ${card.rank}${card.suit}`}
+    >
+      <div className={`absolute top-1 left-1 font-bold text-sm ${suitColors[card.suit]}`}>
+        {card.rank}
+      </div>
+      <div className={`absolute top-1 right-1 text-xs font-semibold text-gray-400`}>
+        {getCardValue(card)}
+      </div>
+      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-5xl ${suitColors[card.suit]}`}>
+        {card.suit}
+      </div>
+    </div>
+  );
+};
+
+// =========================================================================
+// Player Display Component
+// =========================================================================
+const PlayerDisplay = ({ player, isCurrentPlayer, isYou, position = 'bottom' }) => {
+  const getPlayerTypeIcon = (username) => {
+    const aiPlayer = Object.values(AI_PLAYERS).find(ai => ai.name === username);
+    return aiPlayer ? aiPlayer.avatar : '👤';
+  };
+
+  const getPlayerLevel = (username) => {
+    const aiPlayer = Object.values(AI_PLAYERS).find(ai => ai.name === username);
+    return aiPlayer ? ` (${aiPlayer.level})` : '';
+  };
+
+  return (
+    <div className={`
+      relative p-4 rounded-xl border-3 transition-all duration-500 backdrop-blur-sm
+      ${isCurrentPlayer ? 
+        'border-yellow-400 bg-yellow-100/80 shadow-lg shadow-yellow-300/50 animate-pulse' : 
+        'border-gray-300 bg-white/80'
+      }
+      ${isYou ? 'ring-3 ring-blue-400 ring-opacity-70' : ''}
+      ${player.isEliminated ? 'opacity-50 bg-red-100 border-red-300' : ''}
+    `}>
+      <div className="flex items-center space-x-3">
+        <div className="relative">
+          <span className="text-3xl">{getPlayerTypeIcon(player.username)}</span>
+          {isCurrentPlayer && !player.isEliminated && (
+            <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-ping"></div>
+          )}
+        </div>
+        <div>
+          <h3 className="font-bold text-lg text-gray-800">
+            {player.username}
+            {getPlayerLevel(player.username)}
+            {player.isDealer && ' 👑'}
+          </h3>
+          <p className="text-sm text-gray-600">
+            <span className="font-semibold">{player.cards?.length}</span> cards
+            {player.points > 0 && ` | ${player.points} pts`}
+          </p>
+        </div>
+      </div>
+      {player.isEliminated && (
+        <div className="absolute inset-0 flex items-center justify-center bg-red-500/50 rounded-xl">
+          <span className="text-white font-bold text-xl">ELIMINATED</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // =========================================================================
 // Main App Component
 // =========================================================================
