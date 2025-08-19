@@ -948,7 +948,7 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
         </div>
 
         {/* Dealer Selection Panel */}
-        {gameState?.status === 'dealerSelection' && (
+        {room?.status === 'dealerSelection' && (
           <DealerSelectionPanel 
             gameState={room} 
             socket={socket} 
