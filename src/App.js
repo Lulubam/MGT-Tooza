@@ -112,143 +112,6 @@ const CardBack = ({ className = '' }) => (
 );
 
 // =========================================================================
-// Dealer Selection Component
-// =========================================================================
-const DealerSelectionPanel = ({ gameState, socket, currentPlayer }) => {
-  const [hasDrawn, setHasDrawn] = useState(false);
-  
-  const playerCount = gameState?.players?.length || 0;
-  const playersWhoDrawn = gameState?.players?.filter(p => p.dealerCard)?.length || 0;
-  const allPlayersDrawn = playersWhoDrawn >= playerCount;
-  const canDraw = !hasDrawn && !currentPlayer?.dealerCard;
-
-  const handleDrawCard = () => {
-    if (socket && canDraw) {
-      socket.emit('game-action', {
-        action: 'drawDealerCard',
-        data: {}
-      });
-      setHasDrawn(true);
-    }
-  };
-
-  const handleConfirmDealer = () => {
-    if (socket) {
-      socket.emit('game-action', {
-        action: 'confirmDealer',
-        data: {}
-      });
-    }
-  };
-
-  if (gameState?.status !== 'dealerSelection') return null;
-
-  const sortedPlayers = [...(gameState?.players || [])].sort((a, b) => {
-    if (!a.dealerCard && !b.dealerCard) return 0;
-    if (!a.dealerCard) return 1;
-    if (!b.dealerCard) return -1;
-    
-    // Card ranking for dealer selection: A > 10 > 9 > 8 > 7 > 6 > 5 > 4 > 3
-    const rankOrder = { 'A': 14, '10': 13, '9': 12, '8': 11, '7': 10, '6': 9, '5': 8, '4': 7, '3': 6 };
-    return (rankOrder[b.dealerCard.rank] || 0) - (rankOrder[a.dealerCard.rank] || 0);
-  });
-
-  const topPlayer = sortedPlayers[0];
-
-  return (
-    <div className="bg-purple-50 border-2 border-purple-200 rounded-xl p-6 mb-6">
-      <div className="text-center mb-4">
-        <h3 className="text-xl font-bold text-purple-800 flex items-center justify-center space-x-2 mb-2">
-          <span>🎯</span>
-          <span>Dealer Selection</span>
-        </h3>
-        <p className="text-gray-700 text-sm">
-          Each player draws one card. The player with the highest rank becomes the dealer.
-        </p>
-      </div>
-
-      {/* Draw Card Section */}
-      <div className="text-center mb-6">
-        {canDraw ? (
-          <button
-            onClick={handleDrawCard}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
-          >
-            🎴 Draw Your Card
-          </button>
-        ) : currentPlayer?.dealerCard ? (
-          <div className="bg-green-100 border border-green-200 rounded-lg p-4 inline-block">
-            <p className="text-green-800 font-medium mb-2">You drew:</p>
-            <div className="flex justify-center">
-              <Card card={currentPlayer.dealerCard} disabled={true} inTrick={true} />
-            </div>
-          </div>
-        ) : (
-          <div className="bg-gray-100 border border-gray-200 rounded-lg p-4 inline-block">
-            <p className="text-gray-600">Waiting for your turn to draw...</p>
-          </div>
-        )}
-      </div>
-
-      {/* Players and Their Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        {gameState?.players?.map((player, index) => (
-          <div 
-            key={player.id || index}
-            className={`p-4 rounded-lg border-2 ${
-              player.dealerCard ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <span className="font-medium">{player.username}</span>
-                {player.id === currentPlayer?.id && (
-                  <span className="text-blue-600 text-xs bg-blue-100 px-2 py-1 rounded-full">You</span>
-                )}
-              </div>
-              <div className="text-right">
-                {player.dealerCard ? (
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm text-green-700">
-                      {player.dealerCard.rank} of {player.dealerCard.suit}
-                    </span>
-                    <div className="w-8 h-12 bg-white border border-gray-300 rounded flex items-center justify-center text-xs">
-                      {player.dealerCard.suit}
-                    </div>
-                  </div>
-                ) : (
-                  <span className="text-gray-500 text-sm">Not drawn</span>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Results */}
-      {allPlayersDrawn && (
-        <div className="bg-yellow-100 border border-yellow-200 rounded-lg p-4 text-center">
-          <h4 className="font-bold text-yellow-800 mb-2">🏆 Dealer Selected!</h4>
-          <p className="text-yellow-700 mb-4">
-            <strong>{topPlayer?.username}</strong> drew the highest card ({topPlayer?.dealerCard?.rank} of {topPlayer?.dealerCard?.suit}) and becomes the dealer!
-          </p>
-          <button
-            onClick={handleConfirmDealer}
-            className="bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors"
-          >
-            ✅ Confirm Dealer & Continue
-          </button>
-        </div>
-      )}
-
-      <div className="text-center text-sm text-gray-600 mt-4">
-        Progress: {playersWhoDrawn}/{playerCount} players have drawn cards
-      </div>
-    </div>
-  );
-};
-
-// =========================================================================
 // Manual Dealing Component
 // =========================================================================
 const ManualDealingPanel = ({ gameState, socket, currentPlayer }) => {
@@ -267,15 +130,6 @@ const ManualDealingPanel = ({ gameState, socket, currentPlayer }) => {
         data: {}
       });
       setDealingPhase('phase1');
-    }
-  };
-
-  const handleQuickStart = () => {
-    if (socket) {
-      socket.emit('game-action', {
-        action: 'quickStart',
-        data: {}
-      });
     }
   };
 
@@ -318,35 +172,23 @@ const ManualDealingPanel = ({ gameState, socket, currentPlayer }) => {
 
       {dealingPhase === 'not-started' && (
         <div className="text-center">
-          <div className="mb-6">
-            <p className="text-gray-700 mb-3">
-              📋 <strong>Dealing Options:</strong>
+          <div className="mb-4">
+            <p className="text-gray-700 mb-2">
+              📋 <strong>Dealing Rules:</strong>
             </p>
-            <ul className="text-sm text-gray-600 space-y-1 text-left max-w-md mx-auto mb-6">
-              <li>• <strong>Quick Start:</strong> Automatically deal all cards at once</li>
-              <li>• <strong>Manual Dealing:</strong> Deal cards one by one following traditional rules</li>
+            <ul className="text-sm text-gray-600 space-y-1 text-left max-w-md mx-auto">
+              <li>• <strong>Phase 1:</strong> Deal 3 cards to each player (starting from your left)</li>
+              <li>• <strong>Phase 2:</strong> Deal 2 more cards to each player</li>
+              <li>• Each player will have 5 cards total</li>
+              <li>• Deal clockwise from the player to your left</li>
             </ul>
           </div>
-          
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button
-              onClick={handleQuickStart}
-              className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-semibold transition-colors shadow-lg"
-            >
-              ⚡ Quick Start Game
-            </button>
-            <button
-              onClick={handleStartDealing}
-              className="bg-amber-600 hover:bg-amber-700 text-white px-8 py-3 rounded-lg font-semibold transition-colors shadow-lg"
-            >
-              🎴 Manual Dealing
-            </button>
-          </div>
-          
-          <div className="mt-4 text-xs text-gray-500">
-            <p><strong>Quick Start:</strong> Deals 5 cards to each player instantly</p>
-            <p><strong>Manual:</strong> Phase 1 (3 cards each) → Phase 2 (2 cards each)</p>
-          </div>
+          <button
+            onClick={handleStartDealing}
+            className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+          >
+            🎴 Start Dealing Cards
+          </button>
         </div>
       )}
 
@@ -593,7 +435,7 @@ const AIManagementPanel = ({ gameState, socket }) => {
       .filter(item => item.key);
   };
 
-  if (gameState.status === 'playing' || gameState.status === 'dealing' || gameState.status === 'dealerSelection') return null;
+  if (gameState.status === 'playing' || gameState.status === 'dealing') return null;
 
   return (
     <div className="relative">
@@ -910,7 +752,7 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
             </div>
             <div className="flex space-x-3">
               <GameRulesDisplay />
-              {(room.status === 'waiting' || room.status === 'dealing' || room.status === 'dealerSelection') && (
+              {(room.status === 'waiting' || room.status === 'dealing') && (
                 <AIManagementPanel gameState={room} socket={socket} />
               )}
               <button
@@ -925,16 +767,11 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
           <div className="mt-4 flex flex-wrap items-center gap-4">
             <span className={`px-4 py-2 rounded-full text-sm font-medium ${
               room.status === 'waiting' ? 'bg-yellow-200 text-yellow-800' :
-              room.status === 'dealerSelection' ? 'bg-purple-200 text-purple-800' :
               room.status === 'dealing' ? 'bg-blue-200 text-blue-800' :
               room.status === 'playing' ? 'bg-green-200 text-green-800' :
               'bg-gray-200 text-gray-800'
             }`}>
-              Status: {
-                room.status === 'dealerSelection' ? 'Selecting Dealer' :
-                room.status === 'dealing' ? 'Dealing Cards' : 
-                room.status
-              }
+              Status: {room.status === 'dealing' ? 'Dealing Cards' : room.status}
             </span>
             <span className="px-4 py-2 bg-blue-200 text-blue-800 rounded-full text-sm font-medium">
               Phase: {room.gamePhase}
@@ -946,15 +783,6 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
             )}
           </div>
         </div>
-
-        {/* Dealer Selection Panel */}
-        {room?.status === 'dealerSelection' && (
-          <DealerSelectionPanel 
-            gameState={room} 
-            socket={socket} 
-            currentPlayer={currentPlayer}
-          />
-        )}
 
         {/* Manual Dealing Panel */}
         {(room.status === 'waiting' || room.status === 'dealing') && (
