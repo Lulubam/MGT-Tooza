@@ -537,4 +537,48 @@ function App() {
           {gameState.status === 'waiting' && (
             <div className="flex-grow flex items-center justify-center">
               <div className="bg-white/20 backdrop-blur-sm p-8 rounded-xl text-center">
-                <p className="text-2xl font-bold
+                <p className="text-2xl font-bold mb-2">Waiting for more players...</p>
+                <p className="text-sm">Current players: {gameState.players.length}/4</p>
+              </div>
+            </div>
+          )}
+          {gameState.status === 'dealerSelection' && (
+            <DealerSelectionPanel 
+              gameState={gameState} 
+              socket={socket} 
+              currentPlayer={player} 
+            />
+          )}
+
+          {/* AI Management Panel */}
+          {(gameState.status === 'waiting' || gameState.status === 'dealerSelection') && (
+            <AIManagementPanel 
+              gameState={gameState} 
+              socket={socket} 
+              player={player}
+            />
+          )}
+
+          {/* Players in Room */}
+          <h3 className="text-lg font-bold mt-8 mb-4">Players in Room</h3>
+          <ul className="flex flex-wrap gap-4">
+            {gameState.players.map(p => (
+              <li key={p._id} className="bg-white/20 backdrop-blur-sm p-4 rounded-xl flex items-center space-x-4">
+                <span className="text-3xl">{p.avatar}</span>
+                <p className="font-semibold">{p.username}</p>
+                {p.isAI && <span className="text-xs bg-gray-500 px-2 py-1 rounded-full">AI</span>}
+                {p._id === player._id && <span className="text-xs bg-blue-500 px-2 py-1 rounded-full">You</span>}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      <footer className="mt-8 text-center text-gray-200 text-sm">
+        <p>A simple card game built with React and Socket.IO</p>
+      </footer>
+    </div>
+  );
+}
+
+export default App;
