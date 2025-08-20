@@ -13,14 +13,19 @@ const AI_PLAYERS = {
 const Lobby = ({ onJoin }) => {
   const [playerName, setPlayerName] = useState('');
   const [roomCode, setRoomCode] = useState('');
-  const handleSubmit = () => {
-    if (playerName.trim()) onJoin(playerName, roomCode.trim().toUpperCase());
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (playerName.trim()) {
+      onJoin(playerName, roomCode.trim().toUpperCase());
+    }
   };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-green-700 flex items-center justify-center p-4">
       <div className="bg-white/90 backdrop-blur-lg p-8 rounded-2xl shadow-2xl max-w-md w-full">
         <h1 className="text-3xl font-bold text-center text-gray-800 mb-6">🃏 Trick Game</h1>
-        <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Your Name</label>
             <input
@@ -200,6 +205,7 @@ export default function App() {
   const [player, setPlayer] = useState(null);
   const [roomCode, setRoomCode] = useState(null);
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const serverUrl = process.env.NODE_ENV === 'production'
@@ -217,12 +223,17 @@ export default function App() {
   }, []);
 
   const createRoom = async (name) => {
+    setLoading(true);
+    setError(null);
     try {
       const res = await fetch('/api/create-room', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ playerName: name })
       });
+
+      if (!res.ok) throw new Error('Failed to create room');
+
       const data = await res.json();
       if (data.success) {
         setPlayer({ _id: data.playerId, name });
@@ -231,16 +242,23 @@ export default function App() {
       } else throw new Error(data.error);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   const joinRoom = async (name, code) => {
+    setLoading(true);
+    setError(null);
     try {
       const res = await fetch('/api/join-room', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ playerName: name, roomCode: code })
       });
+
+      if (!res.ok) throw new Error('Failed to join room');
+
       const data = await res.json();
       if (data.success) {
         setPlayer({ _id: data.playerId, name });
@@ -249,6 +267,8 @@ export default function App() {
       } else throw new Error(data.error);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -258,7 +278,7 @@ export default function App() {
   };
 
   if (!player) return <Lobby onJoin={handleJoin} />;
-  if (!room) return <div className="text-white">Loading...</div>;
+  if (!room) return <div className="text-white">Loading game...</div>;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-green-700 p-4">
