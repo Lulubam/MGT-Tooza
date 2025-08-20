@@ -1,7 +1,10 @@
-// App.js
+// App.js - Final Corrected Version
 import { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 
+// =========================================================================
+// AI Players Configuration
+// =========================================================================
 const AI_PLAYERS = {
   otu: { name: 'Otu', level: 'beginner', avatar: '🤖' },
   ase: { name: 'Ase', level: 'beginner', avatar: '🎭' },
@@ -10,6 +13,9 @@ const AI_PLAYERS = {
   agba: { name: 'Agba', level: 'advanced', avatar: '👑' }
 };
 
+// =========================================================================
+// Lobby Component
+// =========================================================================
 const Lobby = ({ onJoin }) => {
   const [playerName, setPlayerName] = useState('');
   const [roomCode, setRoomCode] = useState('');
@@ -57,6 +63,9 @@ const Lobby = ({ onJoin }) => {
   );
 };
 
+// =========================================================================
+// Player Display Component
+// =========================================================================
 const PlayerDisplay = ({ player, isCurrentPlayer }) => {
   const getAvatar = () => {
     const ai = Object.values(AI_PLAYERS).find(ai => ai.name === player.username);
@@ -88,6 +97,9 @@ const PlayerDisplay = ({ player, isCurrentPlayer }) => {
   );
 };
 
+// =========================================================================
+// AI Management Panel
+// =========================================================================
 const AIManagementPanel = ({ onAIAction, gameState }) => {
   const added = gameState?.players?.filter(p => p.isAI).map(p => p.username) || [];
 
@@ -119,6 +131,9 @@ const AIManagementPanel = ({ onAIAction, gameState }) => {
   );
 };
 
+// =========================================================================
+// Game Room Component
+// =========================================================================
 const GameRoom = ({ room, player, roomCode, socket }) => {
   const currentPlayer = room?.players?.find(p => p._id === player._id);
   const isMyTurn = currentPlayer?.isCurrent && !currentPlayer.isEliminated;
@@ -197,6 +212,9 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
   );
 };
 
+// =========================================================================
+// Main App Component
+// =========================================================================
 export default function App() {
   const [socket, setSocket] = useState(null);
   const [room, setRoom] = useState(null);
@@ -299,13 +317,34 @@ export default function App() {
     else createRoom(name);
   };
 
-  if (!player) return <Lobby onJoin={handleJoin} />;
-  if (!room) return <div className="text-white">Loading game...</div>;
+  if (!player) {
+    return (
+      <>
+        <Lobby onJoin={handleJoin} />
+        {loading && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-xl shadow-xl text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
+              <p className="text-gray-700">Connecting...</p>
+            </div>
+          </div>
+        )}
+        {error && (
+          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+            {error}
+          </div>
+        )}
+      </>
+    );
+  }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-green-700 p-4">
-      {error && <div className="bg-red-600 text-white p-2 rounded mb-4">{error}</div>}
-      <GameRoom room={room} player={player} roomCode={roomCode} socket={socket} />
-    </div>
-  );
+  if (!room) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-900 to-green-700">
+        <div className="text-white text-2xl font-semibold">Loading game room...</div>
+      </div>
+    );
+  }
+
+  return <GameRoom room={room} player={player} roomCode={roomCode} socket={socket} />;
 }
