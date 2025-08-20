@@ -149,14 +149,14 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
     }
   };
 
-  const handlePlayCard = (card) => {
-    if (socket && isMyTurn) {
-      socket.emit('game-action', {
-        action: 'playCard',
-         { cardId: card.id }
-      });
-    }
-  };
+const handlePlayCard = (card) => {
+  if (socket && isMyTurn) {
+    socket.emit('game-action', {
+      action: 'playCard',
+      data: { cardId: card.id }
+    });
+  }
+};
 
   return (
     <div>
