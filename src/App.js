@@ -145,15 +145,14 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
     }
   };
 
-  const handlePlayCard = (card) => {
-    if (socket && isMyTurn) {
-      socket.emit('game-action', {
-        action: 'playCard',
-         { cardId: card.id }
-      });
-    }
-  };
-
+const handlePlayCard = (card) => {
+  if (socket && isMyTurn) {
+    socket.emit('game-action', {
+      action: 'playCard',
+      cardId: card.id  // Fixed this line
+    });
+  }
+};
   return (
     <div>
       <header className="flex justify-between items-center mb-6 text-white">
