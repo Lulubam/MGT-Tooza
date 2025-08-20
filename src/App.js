@@ -1,4 +1,4 @@
-// App.js - Final Corrected Version
+// App.js - Trick-Taking Card Game with Manual Dealing
 import { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 
@@ -65,7 +65,78 @@ const Lobby = ({ onJoin }) => {
 };
 
 // =========================================================================
-// GameRoom Component
+// Player Display Component
+// =========================================================================
+const PlayerDisplay = ({ player, isCurrentPlayer, isYou }) => {
+  const getAvatar = () => {
+    const ai = Object.values(AI_PLAYERS).find(ai => ai.name === player.username);
+    return ai ? ai.avatar : '👤';
+  };
+
+  return (
+    <div
+      className={`p-4 rounded-xl border-2 transition-all ${
+        player.isEliminated
+          ? 'bg-red-100 border-red-300 opacity-60'
+          : isCurrentPlayer
+            ? 'bg-yellow-100 border-yellow-400 shadow-lg'
+            : 'bg-white border-gray-200'
+      } ${isYou ? 'ring-2 ring-blue-400' : ''}`}
+    >
+      <div className="flex items-center space-x-3">
+        <span className="text-3xl">{getAvatar()}</span>
+        <div>
+          <div className="flex items-center space-x-2 flex-wrap">
+            <span className="font-bold text-gray-800">{player.username}</span>
+            {player.isAI && <span className="text-xs bg-gray-200 px-2 py-1 rounded">{player.aiLevel}</span>}
+            {player.isDealer && <span className="text-xs bg-blue-200 px-2 py-1 rounded">Dealer</span>}
+            {isYou && <span className="text-xs bg-green-200 px-2 py-1 rounded">You</span>}
+          </div>
+          <div className="text-sm text-gray-600">
+            Cards: {player.cards?.length || 0} | Points: {player.points || 0}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// =========================================================================
+// AI Management Panel
+// =========================================================================
+const AIManagementPanel = ({ onAIAction, gameState }) => {
+  const addedAIs = gameState?.players?.filter(p => p.isAI).map(p => p.username) || [];
+
+  return (
+    <div className="bg-white/90 p-4 rounded-xl shadow-lg mb-4">
+      <h3 className="font-bold text-gray-800 mb-3">🤖 AI Players</h3>
+      <div className="space-y-2">
+        {Object.entries(AI_PLAYERS).map(([key, config]) => {
+          const isAdded = addedAIs.includes(config.name);
+          return (
+            <button
+              key={key}
+              onClick={() => onAIAction(isAdded ? 'remove' : 'add', key)}
+              disabled={gameState?.players?.length >= 6 && !isAdded}
+              className={`w-full p-2 rounded flex items-center space-x-2 text-sm transition ${
+                isAdded
+                  ? 'bg-red-100 text-red-800 hover:bg-red-200'
+                  : 'bg-green-100 text-green-800 hover:bg-green-200'
+              } disabled:opacity-50`}
+            >
+              <span>{config.avatar}</span>
+              <span>{config.name}</span>
+              <span className="ml-auto font-bold">{isAdded ? '❌ Remove' : '✅ Add'}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// =========================================================================
+// Game Room Component
 // =========================================================================
 const GameRoom = ({ room, player, roomCode, socket }) => {
   const currentPlayer = room?.players?.find(p => p._id === player._id);
@@ -82,7 +153,7 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
     if (socket && isMyTurn) {
       socket.emit('game-action', {
         action: 'playCard',
-        data: { cardId: card.id }
+         { cardId: card.id }
       });
     }
   };
@@ -103,32 +174,12 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
         <div className="lg:col-span-2">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {room.players.map((p, i) => (
-              <div
+              <PlayerDisplay
                 key={i}
-                className={`p-4 rounded-xl border-2 ${
-                  p.isEliminated
-                    ? 'bg-red-100 border-red-300 opacity-60'
-                    : p.isCurrent
-                      ? 'bg-yellow-100 border-yellow-400 shadow-lg'
-                      : 'bg-white border-gray-200'
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <span className="text-3xl">
-                    {p.isAI ? AI_PLAYERS[p.username.toLowerCase()]?.avatar || '🤖' : '👤'}
-                  </span>
-                  <div>
-                    <div className="flex items-center space-x-2 flex-wrap">
-                      <span className="font-bold text-gray-800">{p.username}</span>
-                      {p.isAI && <span className="text-xs bg-gray-200 px-2 py-1 rounded">AI</span>}
-                      {p.isDealer && <span className="text-xs bg-blue-200 px-2 py-1 rounded">Dealer</span>}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      Cards: {p.cards?.length || 0} | Points: {p.points || 0}
-                    </div>
-                  </div>
-                </div>
-              </div>
+                player={p}
+                isCurrentPlayer={p.isCurrent && !p.isEliminated}
+                isYou={p._id === player._id}
+              />
             ))}
           </div>
         </div>
@@ -136,41 +187,14 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
         <div className="space-y-4">
           {['waiting', 'dealing'].includes(room.gamePhase) && (
             <>
-              <div className="bg-white/90 p-4 rounded-xl shadow-lg">
-                <h3 className="font-bold text-gray-800 mb-3">🤖 AI Players</h3>
-                <div className="space-y-2">
-                  {Object.entries(AI_PLAYERS).map(([key, config]) => {
-                    const isAdded = room.players.some(p => p.username === config.name);
-                    return (
-                      <button
-                        key={key}
-                        onClick={() => {
-                          if (socket && roomCode) {
-                            socket.emit('manage-ai', {
-                              action: isAdded ? 'remove' : 'add',
-                              aiKey: key,
-                              roomCode
-                            });
-                          }
-                        }}
-                        disabled={room.players.length >= 6 && !isAdded}
-                        className={`w-full p-2 rounded flex items-center space-x-2 text-sm transition ${
-                          isAdded
-                            ? 'bg-red-100 text-red-800 hover:bg-red-200'
-                            : 'bg-green-100 text-green-800 hover:bg-green-200'
-                        } disabled:opacity-50`}
-                      >
-                        <span>{config.avatar}</span>
-                        <span>{config.name} ({config.level})</span>
-                        <span className="ml-auto font-bold">
-                          {isAdded ? '❌ Remove' : '✅ Add'}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
+              <AIManagementPanel
+                onAIAction={(action, aiKey) => {
+                  if (socket && roomCode) {
+                    socket.emit('manage-ai', { action, aiKey, roomCode });
+                  }
+                }}
+                gameState={room}
+              />
               <button
                 onClick={() => {
                   if (socket && player) {
@@ -221,9 +245,8 @@ export default function App() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // ✅ Fixed: Removed trailing spaces in URL
     const serverUrl = process.env.NODE_ENV === 'production'
-      ? 'https://mgt-toozabackend.onrender.com' // ← No extra spaces!
+      ? 'https://mgt-toozabackend.onrender.com' // ✅ No trailing spaces
       : 'http://localhost:3001';
 
     const newSocket = io(serverUrl, {
@@ -256,15 +279,6 @@ export default function App() {
       setLoading(false);
     });
 
-    newSocket.on('player-joined', (data) => {
-      console.log('👥 Player joined:', data);
-    });
-
-    newSocket.on('game-over', (data) => {
-      console.log('🏆 Game over:', data);
-      alert(`Game Over! ${data.message}`);
-    });
-
     newSocket.on('disconnect', (reason) => {
       console.log('🔌 Socket disconnected:', reason);
       if (reason === 'io server disconnect') {
@@ -283,7 +297,7 @@ export default function App() {
 
     try {
       const serverUrl = process.env.NODE_ENV === 'production'
-        ? 'https://mgt-toozabackend.onrender.com' // ✅ Fixed
+        ? 'https://mgt-toozabackend.onrender.com'
         : 'http://localhost:3001';
 
       const res = await fetch(`${serverUrl}/api/create-room`, {
@@ -325,7 +339,7 @@ export default function App() {
 
     try {
       const serverUrl = process.env.NODE_ENV === 'production'
-        ? 'https://mgt-toozabackend.onrender.com' // ✅ Fixed
+        ? 'https://mgt-toozabackend.onrender.com'
         : 'http://localhost:3001';
 
       const res = await fetch(`${serverUrl}/api/join-room`, {
@@ -387,6 +401,15 @@ export default function App() {
           </div>
         )}
       </>
+    );
+  }
+
+  // ✅ Critical: Only render GameRoom if room is not null
+  if (!room) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-900 to-green-700">
+        <div className="text-white text-2xl font-semibold">Loading game room...</div>
+      </div>
     );
   }
 
