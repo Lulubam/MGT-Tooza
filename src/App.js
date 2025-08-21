@@ -1,8 +1,7 @@
-// App.jsvs2aqwen
+// App.jsv4deepseek
 import { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 
-// AI Players Configuration
 const AI_PLAYERS = {
   otu: { name: 'Otu', level: 'beginner', avatar: '🤖' },
   ase: { name: 'Ase', level: 'beginner', avatar: '🎭' },
@@ -11,7 +10,6 @@ const AI_PLAYERS = {
   agba: { name: 'Agba', level: 'advanced', avatar: '👑' }
 };
 
-// Lobby Component
 const Lobby = ({ onJoin }) => {
   const [playerName, setPlayerName] = useState('');
   const [roomCode, setRoomCode] = useState('');
@@ -36,7 +34,6 @@ const Lobby = ({ onJoin }) => {
               className="w-full p-3 rounded-lg border-2 border-gray-300 focus:ring-green-500 focus:border-green-500"
               placeholder="Enter your name"
               onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
-              required
             />
           </div>
           <div>
@@ -63,15 +60,17 @@ const Lobby = ({ onJoin }) => {
   );
 };
 
-// Card Component with Color
 const Card = ({ card, onClick, disabled, selected }) => {
-  const suitColor = card.suit === '♥' || card.suit === '♦' ? 'text-red-600' : 'text-black';
-
+  // Determine card color based on suit
+  const isRed = card.suit === '♥' || card.suit === '♦';
+  const suitColor = isRed ? 'text-red-600' : 'text-black';
+  const bgColor = isRed ? 'bg-red-50' : 'bg-white';
+  
   return (
     <button
       onClick={() => !disabled && onClick && onClick(card)}
       disabled={disabled}
-      className={`relative bg-white rounded-xl shadow-lg border-2 w-20 h-28 transition-all duration-200 ${
+      className={`relative ${bgColor} rounded-xl shadow-lg border-2 w-20 h-28 transition-all duration-200 ${
         selected ? 'ring-4 ring-blue-400 -translate-y-3 z-10' : 'hover:shadow-xl hover:-translate-y-1'
       } ${disabled ? 'opacity-60' : 'hover:scale-105'}`}
     >
@@ -88,34 +87,16 @@ const Card = ({ card, onClick, disabled, selected }) => {
   );
 };
 
-// Player Display Component
 const PlayerDisplay = ({ player, isCurrentPlayer }) => {
   const icon = Object.values(AI_PLAYERS).find(ai => ai.name === player.username)?.avatar || '👤';
-
   return (
-    <div className={`p-4 rounded-xl border-2 transition-all ${
-      player.isEliminated 
-        ? 'bg-red-100 border-red-300 opacity-60' 
-        : isCurrentPlayer 
-          ? 'bg-yellow-100 border-yellow-400 shadow-lg' 
-          : 'bg-white border-gray-200'
-    }`}>
+    <div className={`p-4 rounded-xl border-2 ${
+      isCurrentPlayer ? 'bg-yellow-100 border-yellow-400 shadow-lg' : 'bg-white border-gray-200'
+    } ${player.isEliminated ? 'opacity-60' : ''}`}>
       <div className="flex items-center space-x-3">
-        <div className="relative">
-          <span className="text-3xl">{icon}</span>
-          {isCurrentPlayer && !player.isEliminated && (
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-ping"></div>
-          )}
-          {player.isEliminated && (
-            <div className="absolute -top-1 -right-1 text-red-500 text-xl">❌</div>
-          )}
-        </div>
-        <div className="flex-1">
-          <div className="flex items-center space-x-2 flex-wrap">
-            <span className="font-bold text-gray-800">{player.username}</span>
-            {player.isAI && <span className="text-xs bg-gray-200 px-2 py-1 rounded">AI</span>}
-            {player.isDealer && <span className="text-xs bg-blue-200 px-2 py-1 rounded">Dealer</span>}
-          </div>
+        <span className="text-3xl">{icon}</span>
+        <div>
+          <div className="font-bold text-gray-800">{player.username}</div>
           <div className="text-sm text-gray-600">
             Cards: {player.cards?.length || 0} | Points: {player.points || 0}
           </div>
@@ -125,13 +106,12 @@ const PlayerDisplay = ({ player, isCurrentPlayer }) => {
   );
 };
 
-// Dealing Choice Panel (Visible only to dealer)
 const DealingChoicePanel = ({ socket, roomCode, playerId }) => {
-  const handleChoice = (mode, selection) => {
+  const handleChoice = (autoDeal, highCard) => {
     socket.emit('game-action', {
       action: 'set-dealing-mode',
-      mode,
-      selection,
+      autoDeal,
+      highCard,
       playerId
     });
   };
@@ -139,20 +119,20 @@ const DealingChoicePanel = ({ socket, roomCode, playerId }) => {
   return (
     <div className="bg-white/90 p-6 rounded-xl shadow-lg mb-6">
       <h3 className="text-xl font-bold text-gray-800 mb-4">🃏 Dealer Options</h3>
-      <p className="text-gray-700 mb-4">Choose how to deal:</p>
+      <p className="text-gray-700 mb-4">Choose dealing style:</p>
       
       <div className="space-y-4">
         <div>
           <h4 className="font-semibold text-gray-800 mb-2">Dealing Mode</h4>
           <div className="flex gap-4">
             <button
-              onClick={() => handleChoice('auto', 'highest')}
+              onClick={() => handleChoice(true, true)}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
             >
               🤖 Auto Deal
             </button>
             <button
-              onClick={() => handleChoice('manual', 'highest')}
+              onClick={() => handleChoice(false, true)}
               className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
             >
               👐 Manual Deal
@@ -164,13 +144,13 @@ const DealingChoicePanel = ({ socket, roomCode, playerId }) => {
           <h4 className="font-semibold text-gray-800 mb-2">Dealer Selection</h4>
           <div className="flex gap-4">
             <button
-              onClick={() => handleChoice('auto', 'highest')}
+              onClick={() => handleChoice(true, true)}
               className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg"
             >
               🏆 Highest Card Wins
             </button>
             <button
-              onClick={() => handleChoice('auto', 'lowest')}
+              onClick={() => handleChoice(true, false)}
               className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg"
             >
               🥉 Lowest Card Wins
@@ -182,11 +162,16 @@ const DealingChoicePanel = ({ socket, roomCode, playerId }) => {
   );
 };
 
-// Game Room Component
 const GameRoom = ({ room, player, roomCode, socket }) => {
   const currentPlayer = room?.players?.find(p => p._id === player._id);
   const isMyTurn = currentPlayer?.isCurrent && !currentPlayer.isEliminated;
-  const activePlayers = room?.players?.filter(p => !p.isEliminated) || [];
+
+  // Add this useEffect to ensure cards are visible
+  useEffect(() => {
+    if (currentPlayer && currentPlayer.cards && currentPlayer.cards.length > 0) {
+      console.log("Player cards:", currentPlayer.cards);
+    }
+  }, [currentPlayer]);
 
   const handlePlayCard = (card) => {
     if (socket && isMyTurn) {
@@ -206,6 +191,8 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
     }
   };
 
+  const activePlayers = room?.players?.filter(p => !p.isEliminated) || [];
+
   return (
     <div>
       <header className="flex justify-between items-center mb-6 text-white">
@@ -217,6 +204,15 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
           Leave Room
         </button>
       </header>
+
+      {/* Add a turn indicator */}
+      {room.status === 'playing' && (
+        <div className="bg-blue-600 text-white p-3 rounded mb-4 text-center">
+          {isMyTurn ? 
+            "🎮 It's YOUR turn!" : 
+            `👀 It's ${room.players.find(p => p.isCurrent)?.username}'s turn`}
+        </div>
+      )}
 
       {/* Dealer Choice Panel */}
       {room.status === 'waiting' && currentPlayer?.isDealer && (
@@ -263,7 +259,11 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
               return (
                 <button
                   key={key}
-                  onClick={() => socket.emit('manage-ai', { action: isAdded ? 'remove' : 'add', aiKey: key })}
+                  onClick={() => socket.emit('manage-ai', { 
+                    action: isAdded ? 'remove' : 'add', 
+                    aiKey: key,
+                    roomCode: roomCode 
+                  })}
                   disabled={room.players.length >= 6 && !isAdded}
                   className={`w-full p-2 rounded text-sm transition ${
                     isAdded
@@ -281,13 +281,7 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
 
       {isMyTurn && currentPlayer && currentPlayer.cards && currentPlayer.cards.length > 0 && (
         <div className="mt-8">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-white font-bold">Your Cards</h3>
-            <div className="flex items-center space-x-2 bg-yellow-200 px-3 py-1 rounded-full">
-              <div className="w-2 h-2 bg-yellow-600 rounded-full animate-ping"></div>
-              <span className="text-sm font-medium text-yellow-800">Your Turn</span>
-            </div>
-          </div>
+          <h3 className="text-white font-bold mb-4">Your Cards</h3>
           <div className="flex gap-2 flex-wrap">
             {currentPlayer.cards.map((card, i) => (
               <Card key={i} card={card} onClick={handlePlayCard} />
@@ -299,14 +293,12 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
   );
 };
 
-// Main App Component
 export default function App() {
   const [socket, setSocket] = useState(null);
   const [room, setRoom] = useState(null);
   const [player, setPlayer] = useState(null);
   const [roomCode, setRoomCode] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const serverUrl = process.env.NODE_ENV === 'production'
@@ -326,7 +318,7 @@ export default function App() {
     });
 
     newSocket.on('connect_error', (err) => {
-      console.error('Socket connection error:', err);
+      console.error('Socket error:', err);
       setError('Failed to connect to server');
     });
 
@@ -344,8 +336,6 @@ export default function App() {
   }, []);
 
   const createRoom = async (playerName) => {
-    setLoading(true);
-    setError('');
     try {
       const serverUrl = process.env.NODE_ENV === 'production'
         ? 'https://mgt-toozabackend.onrender.com'
@@ -357,12 +347,9 @@ export default function App() {
         body: JSON.stringify({ playerName: playerName.trim() })
       });
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: 'Network error' }));
-        throw new Error(errorData.error || `HTTP ${res.status}`);
-      }
-
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+
       if (data.success) {
         setPlayer({ _id: data.playerId, name: playerName });
         setRoomCode(data.roomCode);
@@ -372,14 +359,10 @@ export default function App() {
       }
     } catch (err) {
       setError(err.message);
-    } finally {
-      setLoading(false);
     }
   };
 
   const joinRoom = async (playerName, code) => {
-    setLoading(true);
-    setError('');
     try {
       const serverUrl = process.env.NODE_ENV === 'production'
         ? 'https://mgt-toozabackend.onrender.com'
@@ -391,12 +374,9 @@ export default function App() {
         body: JSON.stringify({ playerName: playerName.trim(), roomCode: code })
       });
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: 'Network error' }));
-        throw new Error(errorData.error || `HTTP ${res.status}`);
-      }
-
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+
       if (data.success) {
         setPlayer({ _id: data.playerId, name: playerName });
         setRoomCode(code);
@@ -406,8 +386,6 @@ export default function App() {
       }
     } catch (err) {
       setError(err.message);
-    } finally {
-      setLoading(false);
     }
   };
 
