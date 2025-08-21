@@ -1,10 +1,7 @@
-// App.js - Final Corrected Version
+// App.js
 import { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 
-// =========================================================================
-// AI Players Configuration
-// =========================================================================
 const AI_PLAYERS = {
   otu: { name: 'Otu', level: 'beginner', avatar: '🤖' },
   ase: { name: 'Ase', level: 'beginner', avatar: '🎭' },
@@ -13,31 +10,29 @@ const AI_PLAYERS = {
   agba: { name: 'Agba', level: 'advanced', avatar: '👑' }
 };
 
-// =========================================================================
-// Lobby Component
-// =========================================================================
 const Lobby = ({ onJoin }) => {
   const [playerName, setPlayerName] = useState('');
   const [roomCode, setRoomCode] = useState('');
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (playerName.trim()) onJoin(playerName, roomCode.trim().toUpperCase());
+  const handleSubmit = () => {
+    if (playerName.trim()) {
+      onJoin(playerName, roomCode.trim().toUpperCase());
+    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-green-700 flex items-center justify-center p-4">
       <div className="bg-white/90 backdrop-blur-lg p-8 rounded-2xl shadow-2xl max-w-md w-full">
         <h1 className="text-3xl font-bold text-center text-gray-800 mb-6">🃏 Trick Game</h1>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Your Name</label>
             <input
               type="text"
               value={playerName}
               onChange={(e) => setPlayerName(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-              placeholder="Enter name"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
+              placeholder="Enter your name"
               required
             />
           </div>
@@ -47,15 +42,15 @@ const Lobby = ({ onJoin }) => {
               type="text"
               value={roomCode}
               onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-              placeholder="Join room"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
+              placeholder="Join existing room"
             />
           </div>
           <button
             type="submit"
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg"
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition"
           >
-            {roomCode ? 'Join Room' : 'Create Room'}
+            {roomCode ? '🚪 Join Room' : '🎮 Create Room'}
           </button>
         </form>
       </div>
@@ -63,17 +58,14 @@ const Lobby = ({ onJoin }) => {
   );
 };
 
-// =========================================================================
-// Player Display Component
-// =========================================================================
 const PlayerDisplay = ({ player, isCurrentPlayer }) => {
-  const getAvatar = () => {
-    const ai = Object.values(AI_PLAYERS).find(ai => ai.name === player.username);
+  const getPlayerTypeIcon = (username) => {
+    const ai = Object.values(AI_PLAYERS).find(ai => ai.name === username);
     return ai ? ai.avatar : '👤';
   };
 
   return (
-    <div className={`p-4 rounded-xl border-2 ${
+    <div className={`p-4 rounded-xl border-2 transition-all ${
       player.isEliminated 
         ? 'bg-red-100 border-red-300 opacity-60' 
         : isCurrentPlayer 
@@ -81,9 +73,17 @@ const PlayerDisplay = ({ player, isCurrentPlayer }) => {
           : 'bg-white border-gray-200'
     }`}>
       <div className="flex items-center space-x-3">
-        <span className="text-3xl">{getAvatar()}</span>
-        <div>
-          <div className="flex items-center space-x-2">
+        <div className="relative">
+          <span className="text-3xl">{getPlayerTypeIcon(player.username)}</span>
+          {isCurrentPlayer && !player.isEliminated && (
+            <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-ping"></div>
+          )}
+          {player.isEliminated && (
+            <div className="absolute -top-1 -right-1 text-red-500 text-xl">❌</div>
+          )}
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center space-x-2 flex-wrap">
             <span className="font-bold text-gray-800">{player.username}</span>
             {player.isAI && <span className="text-xs bg-gray-200 px-2 py-1 rounded">AI</span>}
             {player.isDealer && <span className="text-xs bg-blue-200 px-2 py-1 rounded">Dealer</span>}
@@ -97,24 +97,41 @@ const PlayerDisplay = ({ player, isCurrentPlayer }) => {
   );
 };
 
-// =========================================================================
-// AI Management Panel
-// =========================================================================
+const TrickDisplay = ({ currentTrick }) => {
+  if (currentTrick.length === 0) return null;
+
+  return (
+    <div className="bg-white/90 p-4 rounded-xl shadow-lg mb-4">
+      <h3 className="font-semibold text-gray-800 mb-2">Current Trick</h3>
+      <div className="flex gap-2 justify-center flex-wrap">
+        {currentTrick.map((play, index) => (
+          <div key={index} className="text-center">
+            <div className="text-sm font-medium text-gray-700">{play.player}</div>
+            <div className="w-16 h-24 bg-blue-100 border-2 border-blue-300 rounded-lg flex items-center justify-center text-2xl">
+              {play.card.rank[0]}{play.card.suit[0]}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const AIManagementPanel = ({ onAIAction, gameState }) => {
-  const added = gameState?.players?.filter(p => p.isAI).map(p => p.username) || [];
+  const addedAIs = gameState?.players?.filter(p => p.isAI).map(p => p.username) || [];
 
   return (
     <div className="bg-white/90 p-4 rounded-xl shadow-lg mb-4">
       <h3 className="font-bold text-gray-800 mb-3">🤖 AI Players</h3>
       <div className="space-y-2">
         {Object.entries(AI_PLAYERS).map(([key, config]) => {
-          const isAdded = added.includes(config.name);
+          const isAdded = addedAIs.includes(config.name);
           return (
             <button
               key={key}
               onClick={() => onAIAction(isAdded ? 'remove' : 'add', key)}
-              disabled={gameState?.players?.length >= 6 && !isAdded}
-              className={`w-full p-2 rounded flex items-center space-x-2 text-sm ${
+              disabled={gameState?.players?.length >= 4 && !isAdded}
+              className={`w-full p-2 rounded flex items-center space-x-2 text-sm transition ${
                 isAdded
                   ? 'bg-red-100 text-red-800 hover:bg-red-200'
                   : 'bg-green-100 text-green-800 hover:bg-green-200'
@@ -122,7 +139,9 @@ const AIManagementPanel = ({ onAIAction, gameState }) => {
             >
               <span>{config.avatar}</span>
               <span>{config.name} ({config.level})</span>
-              <span className="ml-auto font-bold">{isAdded ? '❌ Remove' : '✅ Add'}</span>
+              <span className="ml-auto font-bold">
+                {isAdded ? '❌ Remove' : '✅ Add'}
+              </span>
             </button>
           );
         })}
@@ -131,9 +150,19 @@ const AIManagementPanel = ({ onAIAction, gameState }) => {
   );
 };
 
-// =========================================================================
-// Game Room Component
-// =========================================================================
+const GameRulesDisplay = () => (
+  <div className="bg-white/90 p-4 rounded-xl shadow-lg mb-4">
+    <h3 className="font-bold text-gray-800 mb-3">📜 Rules</h3>
+    <ul className="text-sm text-gray-700 space-y-1">
+      <li>• Avoid winning tricks (1 point each)</li>
+      <li>• Black 3 (♠3) = 12 points</li>
+      <li>• Red 3 = 6 points, 4 = 4 points, A = 2 points</li>
+      <li>• First to 12+ points is eliminated</li>
+      <li>• Last player standing wins</li>
+    </ul>
+  </div>
+);
+
 const GameRoom = ({ room, player, roomCode, socket }) => {
   const currentPlayer = room?.players?.find(p => p._id === player._id);
   const isMyTurn = currentPlayer?.isCurrent && !currentPlayer.isEliminated;
@@ -145,14 +174,15 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
     }
   };
 
-const handlePlayCard = (card) => {
-  if (socket && isMyTurn) {
-    socket.emit('game-action', {
-      action: 'playCard',
-      cardId: card.id  // Fixed this line
-    });
-  }
-};
+  const handlePlayCard = (card) => {
+    if (socket && isMyTurn) {
+      socket.emit('game-action', {
+        action: 'playCard',
+        cardId: card.id
+      });
+    }
+  };
+
   return (
     <div>
       <header className="flex justify-between items-center mb-6 text-white">
@@ -161,6 +191,8 @@ const handlePlayCard = (card) => {
           Leave Room
         </button>
       </header>
+
+      <TrickDisplay currentTrick={room.currentTrick} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
@@ -175,15 +207,9 @@ const handlePlayCard = (card) => {
           {['waiting', 'dealing'].includes(room.gamePhase) && (
             <>
               <AIManagementPanel onAIAction={(action, aiKey) => {
-                socket.emit('manage-ai', { action, aiKey, roomCode });
+                socket.emit('manage-ai', { action, aiKey });
               }} gameState={room} />
-              <button
-                onClick={() => socket.emit('game-action', { action: 'startGame' })}
-                disabled={room.players.filter(p => !p.isEliminated).length < 2}
-                className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-500 text-white py-3 rounded-lg"
-              >
-                Start Game ({room.players.filter(p => !p.isEliminated).length}/2+)
-              </button>
+              <GameRulesDisplay />
             </>
           )}
         </div>
@@ -197,10 +223,10 @@ const handlePlayCard = (card) => {
               <button
                 key={i}
                 onClick={() => handlePlayCard(card)}
-                className="bg-white p-1 rounded shadow hover:scale-105 transition"
+                className="bg-white p-1 rounded shadow hover:scale-105 transition transform"
               >
                 <div className="w-16 h-24 border-2 border-gray-300 rounded flex items-center justify-center text-xl font-bold">
-                  {card.rank} {card.suit}
+                  {card.rank} {card.suit[0]}
                 </div>
               </button>
             ))}
@@ -211,15 +237,12 @@ const handlePlayCard = (card) => {
   );
 };
 
-// =========================================================================
-// Main App Component
-// =========================================================================
 export default function App() {
   const [socket, setSocket] = useState(null);
   const [room, setRoom] = useState(null);
   const [player, setPlayer] = useState(null);
-  const [roomCode, setRoomCode] = useState(null);
-  const [error, setError] = useState(null);
+  const [roomCode, setRoomCode] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -228,85 +251,80 @@ export default function App() {
       : 'http://localhost:3001';
 
     const newSocket = io(serverUrl, {
-      transports: ['websocket', 'polling'],
+      transports: ['websocket'],
       withCredentials: true,
-      reconnection: true,
       reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      timeout: 20000
+      timeout: 10000
     });
 
     newSocket.on('connect', () => {
-      console.log('✅ Connected to server');
+      console.log('Socket connected');
       setError(null);
     });
 
     newSocket.on('connect_error', (err) => {
-      console.error('❌ Connection error:', err);
-      setError('Failed to connect. Retrying...');
+      console.error('Socket error:', err);
+      setError('Failed to connect to server');
     });
 
-    newSocket.on('error', (err) => {
-      console.error('❌ Server error:', err);
-      setError(err.message);
-    });
-
-    newSocket.on('game-state', (gs) => {
-      console.log('🟢 Received game state:', gs);
-      setRoom(gs);
-      setLoading(false);
-    });
-
-    newSocket.on('disconnect', (reason) => {
-      console.log('🔌 Disconnected:', reason);
-      if (reason === 'io server disconnect') {
-        newSocket.connect();
-      }
-    });
+    newSocket.on('game-state', (state) => setRoom(state));
+    newSocket.on('error', (data) => setError(data.message));
 
     setSocket(newSocket);
 
     return () => newSocket.close();
   }, []);
 
-  const createRoom = async (name) => {
+  const createRoom = async (playerName) => {
     setLoading(true);
-    setError(null);
+    setError('');
     try {
       const res = await fetch('/api/create-room', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playerName: name })
+        body: JSON.stringify({ playerName })
       });
+
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data = await res.json();
+
       if (data.success) {
-        setPlayer({ _id: data.playerId, name });
+        setPlayer({ _id: data.playerId, name: playerName });
         setRoomCode(data.roomCode);
         socket.emit('join-game', { playerId: data.playerId, roomCode: data.roomCode });
-      } else throw new Error(data.error);
+      } else {
+        throw new Error(data.error || 'Failed to create room');
+      }
     } catch (err) {
       setError(err.message);
+    } finally {
       setLoading(false);
     }
   };
 
-  const joinRoom = async (name, code) => {
+  const joinRoom = async (playerName, code) => {
     setLoading(true);
-    setError(null);
+    setError('');
     try {
       const res = await fetch('/api/join-room', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playerName: name, roomCode: code })
+        body: JSON.stringify({ playerName, roomCode: code })
       });
+
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data = await res.json();
+
       if (data.success) {
-        setPlayer({ _id: data.playerId, name });
+        setPlayer({ _id: data.playerId, name: playerName });
         setRoomCode(code);
         socket.emit('join-game', { playerId: data.playerId, roomCode: code });
-      } else throw new Error(data.error);
+      } else {
+        throw new Error(data.error || 'Failed to join room');
+      }
     } catch (err) {
       setError(err.message);
+    } finally {
       setLoading(false);
     }
   };
@@ -337,13 +355,14 @@ export default function App() {
     );
   }
 
-  if (!room) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-900 to-green-700">
-        <div className="text-white text-2xl font-semibold">Loading game room...</div>
-      </div>
-    );
-  }
-
-  return <GameRoom room={room} player={player} roomCode={roomCode} socket={socket} />;
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-green-700 p-4">
+      {error && (
+        <div className="bg-red-600 text-white p-3 rounded mb-4">
+          {error} <button onClick={() => setError('')} className="float-right">✕</button>
+        </div>
+      )}
+      <GameRoom room={room} player={player} roomCode={roomCode} socket={socket} />
+    </div>
+  );
 }
