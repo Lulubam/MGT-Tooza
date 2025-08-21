@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 
+// AI Players Configuration
 const AI_PLAYERS = {
   otu: { name: 'Otu', level: 'beginner', avatar: '🤖' },
   ase: { name: 'Ase', level: 'beginner', avatar: '🎭' },
@@ -10,6 +11,7 @@ const AI_PLAYERS = {
   agba: { name: 'Agba', level: 'advanced', avatar: '👑' }
 };
 
+// Lobby Component
 const Lobby = ({ onJoin }) => {
   const [playerName, setPlayerName] = useState('');
   const [roomCode, setRoomCode] = useState('');
@@ -34,6 +36,7 @@ const Lobby = ({ onJoin }) => {
               className="w-full p-3 rounded-lg border-2 border-gray-300 focus:ring-green-500 focus:border-green-500"
               placeholder="Enter your name"
               onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
+              required
             />
           </div>
           <div>
@@ -60,19 +63,37 @@ const Lobby = ({ onJoin }) => {
   );
 };
 
+// Player Display Component
 const PlayerDisplay = ({ player, isCurrentPlayer }) => {
-  const icon = player.isAI
-    ? Object.values(AI_PLAYERS).find(ai => ai.name === player.username)?.avatar || '🤖'
-    : '👤';
+  const getPlayerTypeIcon = (username) => {
+    const ai = Object.values(AI_PLAYERS).find(ai => ai.name === username);
+    return ai ? ai.avatar : '👤';
+  };
 
   return (
-    <div className={`p-4 rounded-xl border-2 ${
-      isCurrentPlayer ? 'bg-yellow-100 border-yellow-400' : 'bg-white border-gray-200'
-    } ${player.isEliminated ? 'opacity-60' : ''}`}>
+    <div className={`p-4 rounded-xl border-2 transition-all ${
+      player.isEliminated 
+        ? 'bg-red-100 border-red-300 opacity-60' 
+        : isCurrentPlayer 
+          ? 'bg-yellow-100 border-yellow-400 shadow-lg' 
+          : 'bg-white border-gray-200'
+    }`}>
       <div className="flex items-center space-x-3">
-        <span className="text-3xl">{icon}</span>
-        <div>
-          <div className="font-bold text-gray-800">{player.username}</div>
+        <div className="relative">
+          <span className="text-3xl">{getPlayerTypeIcon(player.username)}</span>
+          {isCurrentPlayer && !player.isEliminated && (
+            <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-ping"></div>
+          )}
+          {player.isEliminated && (
+            <div className="absolute -top-1 -right-1 text-red-500 text-xl">❌</div>
+          )}
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center space-x-2 flex-wrap">
+            <span className="font-bold text-gray-800">{player.username}</span>
+            {player.isAI && <span className="text-xs bg-gray-200 px-2 py-1 rounded">AI</span>}
+            {player.isDealer && <span className="text-xs bg-blue-200 px-2 py-1 rounded">Dealer</span>}
+          </div>
           <div className="text-sm text-gray-600">
             Cards: {player.cards?.length || 0} | Points: {player.points || 0}
           </div>
@@ -82,13 +103,24 @@ const PlayerDisplay = ({ player, isCurrentPlayer }) => {
   );
 };
 
+// Game Room Component
 const GameRoom = ({ room, player, roomCode, socket }) => {
   const currentPlayer = room?.players?.find(p => p._id === player._id);
   const isMyTurn = currentPlayer?.isCurrent && !currentPlayer.isEliminated;
 
+  const handleLeave = () => {
+    if (socket && player && roomCode) {
+      socket.emit('leave-room', { playerId: player._id, roomCode });
+      window.location.reload();
+    }
+  };
+
   const handlePlayCard = (card) => {
     if (socket && isMyTurn) {
-      socket.emit('game-action', { action: 'playCard', cardId: card.id });
+      socket.emit('game-action', {
+        action: 'playCard',
+        cardId: card.id
+      });
     }
   };
 
@@ -98,14 +130,13 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
     }
   };
 
+  const activePlayers = room?.players?.filter(p => !p.isEliminated) || [];
+
   return (
     <div>
       <header className="flex justify-between items-center mb-6 text-white">
         <h1 className="text-2xl font-bold">Room: {roomCode}</h1>
-        <button
-          onClick={() => window.location.reload()}
-          className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-white"
-        >
+        <button onClick={handleLeave} className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-white">
           Leave Room
         </button>
       </header>
@@ -130,21 +161,25 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
                     key={key}
                     onClick={() => socket.emit('manage-ai', { action: isAdded ? 'remove' : 'add', aiKey: key })}
                     disabled={room.players.length >= 6 && !isAdded}
-                    className={`w-full p-2 rounded text-sm ${isAdded ? 'bg-red-100' : 'bg-green-100'} disabled:opacity-50`}
+                    className={`w-full p-2 rounded text-sm transition ${
+                      isAdded
+                        ? 'bg-red-100 text-red-800 hover:bg-red-200'
+                        : 'bg-green-100 text-green-800 hover:bg-green-200'
+                    } disabled:opacity-50`}
                   >
-                    {isAdded ? '❌ Remove ' : '✅ Add '} {config.name}
+                    {isAdded ? '❌ Remove' : '✅ Add'} {config.name}
                   </button>
                 );
               })}
             </div>
           )}
 
-          {room.players.filter(p => !p.isEliminated).length >= 2 && (
+          {activePlayers.length >= 2 && (
             <button
               onClick={handleStartGame}
-              className="w-full bg-green-600 text-white py-2 rounded"
+              className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-semibold"
             >
-              Start Game
+              Start Game ({activePlayers.length}/2+)
             </button>
           )}
         </div>
@@ -158,7 +193,7 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
               <button
                 key={i}
                 onClick={() => handlePlayCard(card)}
-                className="bg-white p-1 rounded shadow"
+                className="bg-white p-1 rounded shadow hover:scale-105 transition transform"
               >
                 <div className="w-16 h-24 border-2 border-gray-300 rounded flex items-center justify-center text-xl font-bold">
                   {card.rank} {card.suit}
@@ -172,6 +207,7 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
   );
 };
 
+// Main App Component
 export default function App() {
   const [socket, setSocket] = useState(null);
   const [room, setRoom] = useState(null);
@@ -198,12 +234,21 @@ export default function App() {
     });
 
     newSocket.on('connect_error', (err) => {
-      console.error('Socket error:', err);
+      console.error('Socket connection error:', err);
       setError('Failed to connect to server');
     });
 
-    newSocket.on('game-state', (state) => setRoom(state));
-    newSocket.on('error', (data) => setError(data.message));
+    newSocket.on('game-state', (state) => {
+      if (state) setRoom(state);
+    });
+
+    newSocket.on('error', (data) => {
+      setError(data.message || 'An error occurred');
+    });
+
+    newSocket.on('game-message', (data) => {
+      console.log('Game message:', data.message);
+    });
 
     setSocket(newSocket);
 
@@ -221,7 +266,7 @@ export default function App() {
       const res = await fetch(`${serverUrl}/api/create-room`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playerName })
+        body: JSON.stringify({ playerName: playerName.trim() })
       });
 
       if (!res.ok) {
@@ -230,6 +275,7 @@ export default function App() {
       }
 
       const data = await res.json();
+
       if (data.success) {
         setPlayer({ _id: data.playerId, name: playerName });
         setRoomCode(data.roomCode);
@@ -255,7 +301,7 @@ export default function App() {
       const res = await fetch(`${serverUrl}/api/join-room`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playerName, roomCode: code })
+        body: JSON.stringify({ playerName: playerName.trim(), roomCode: code })
       });
 
       if (!res.ok) {
@@ -264,6 +310,7 @@ export default function App() {
       }
 
       const data = await res.json();
+
       if (data.success) {
         setPlayer({ _id: data.playerId, name: playerName });
         setRoomCode(code);
@@ -279,23 +326,49 @@ export default function App() {
   };
 
   const handleJoin = (name, code) => {
-    if (code) joinRoom(name, code);
-    else createRoom(name);
+    if (code && code.trim()) {
+      joinRoom(name, code.trim().toUpperCase());
+    } else {
+      createRoom(name);
+    }
   };
 
   if (!player) {
     return (
       <>
         <Lobby onJoin={handleJoin} />
-        {loading && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">Loading...</div>}
-        {error && <div className="bg-red-600 text-white p-3">{error}</div>}
+        {loading && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-xl shadow-xl text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
+              <p className="text-gray-700">Connecting...</p>
+            </div>
+          </div>
+        )}
+        {error && (
+          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+            {error}
+          </div>
+        )}
       </>
+    );
+  }
+
+  if (!room) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-900 to-green-700">
+        <div className="text-white text-2xl font-semibold">Loading game room...</div>
+      </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-green-700 p-4">
-      {error && <div className="bg-red-600 text-white p-3 rounded mb-4">{error}</div>}
+      {error && (
+        <div className="bg-red-600 text-white p-3 rounded mb-4">
+          {error} <button onClick={() => setError('')} className="float-right">✕</button>
+        </div>
+      )}
       <GameRoom room={room} player={player} roomCode={roomCode} socket={socket} />
     </div>
   );
