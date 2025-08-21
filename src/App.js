@@ -1,7 +1,8 @@
-// App.js 
+// App.jsvs2qwen
 import { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 
+// AI Players Configuration
 const AI_PLAYERS = {
   otu: { name: 'Otu', level: 'beginner', avatar: '🤖' },
   ase: { name: 'Ase', level: 'beginner', avatar: '🎭' },
@@ -10,6 +11,7 @@ const AI_PLAYERS = {
   agba: { name: 'Agba', level: 'advanced', avatar: '👑' }
 };
 
+// Lobby Component
 const Lobby = ({ onJoin }) => {
   const [playerName, setPlayerName] = useState('');
   const [roomCode, setRoomCode] = useState('');
@@ -34,6 +36,7 @@ const Lobby = ({ onJoin }) => {
               className="w-full p-3 rounded-lg border-2 border-gray-300 focus:ring-green-500 focus:border-green-500"
               placeholder="Enter your name"
               onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
+              required
             />
           </div>
           <div>
@@ -60,8 +63,17 @@ const Lobby = ({ onJoin }) => {
   );
 };
 
+// Card Component with Color
 const Card = ({ card, onClick, disabled, selected }) => {
   const suitColor = card.suit === '♥' || card.suit === '♦' ? 'text-red-600' : 'text-black';
+  const pointValue = (() => {
+    if (card.rank === '3' && card.suit === '♠') return '12pts';
+    if (card.rank === '3') return '6pts';
+    if (card.rank === '4') return '4pts';
+    if (card.rank === 'A') return '2pts';
+    return '1pt';
+  })();
+
   return (
     <button
       onClick={() => !disabled && onClick && onClick(card)}
@@ -79,20 +91,41 @@ const Card = ({ card, onClick, disabled, selected }) => {
         <div>{card.rank}</div>
         <div className={`${suitColor} text-base -mt-1`}>{card.suit}</div>
       </div>
+      <div className="absolute top-1 right-1 bg-blue-500 text-white text-xs px-1 rounded-bl rounded-tr-sm">
+        {pointValue}
+      </div>
     </button>
   );
 };
 
+// Player Display Component
 const PlayerDisplay = ({ player, isCurrentPlayer }) => {
   const icon = Object.values(AI_PLAYERS).find(ai => ai.name === player.username)?.avatar || '👤';
+
   return (
-    <div className={`p-4 rounded-xl border-2 ${
-      isCurrentPlayer ? 'bg-yellow-100 border-yellow-400 shadow-lg' : 'bg-white border-gray-200'
-    } ${player.isEliminated ? 'opacity-60' : ''}`}>
+    <div className={`p-4 rounded-xl border-2 transition-all ${
+      player.isEliminated 
+        ? 'bg-red-100 border-red-300 opacity-60' 
+        : isCurrentPlayer 
+          ? 'bg-yellow-100 border-yellow-400 shadow-lg' 
+          : 'bg-white border-gray-200'
+    }`}>
       <div className="flex items-center space-x-3">
-        <span className="text-3xl">{icon}</span>
-        <div>
-          <div className="font-bold text-gray-800">{player.username}</div>
+        <div className="relative">
+          <span className="text-3xl">{icon}</span>
+          {isCurrentPlayer && !player.isEliminated && (
+            <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-ping"></div>
+          )}
+          {player.isEliminated && (
+            <div className="absolute -top-1 -right-1 text-red-500 text-xl">❌</div>
+          )}
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center space-x-2 flex-wrap">
+            <span className="font-bold text-gray-800">{player.username}</span>
+            {player.isAI && <span className="text-xs bg-gray-200 px-2 py-1 rounded">AI</span>}
+            {player.isDealer && <span className="text-xs bg-blue-200 px-2 py-1 rounded">Dealer</span>}
+          </div>
           <div className="text-sm text-gray-600">
             Cards: {player.cards?.length || 0} | Points: {player.points || 0}
           </div>
@@ -102,12 +135,13 @@ const PlayerDisplay = ({ player, isCurrentPlayer }) => {
   );
 };
 
+// Dealing Choice Panel (Visible only to dealer)
 const DealingChoicePanel = ({ socket, roomCode, playerId }) => {
-  const handleChoice = (autoDeal, highCard) => {
+  const handleChoice = (mode, selection) => {
     socket.emit('game-action', {
       action: 'set-dealing-mode',
-      autoDeal,
-      highCard,
+      mode,
+      selection,
       playerId
     });
   };
@@ -115,20 +149,20 @@ const DealingChoicePanel = ({ socket, roomCode, playerId }) => {
   return (
     <div className="bg-white/90 p-6 rounded-xl shadow-lg mb-6">
       <h3 className="text-xl font-bold text-gray-800 mb-4">🃏 Dealer Options</h3>
-      <p className="text-gray-700 mb-4">Choose dealing style:</p>
+      <p className="text-gray-700 mb-4">Choose how to deal:</p>
       
       <div className="space-y-4">
         <div>
           <h4 className="font-semibold text-gray-800 mb-2">Dealing Mode</h4>
           <div className="flex gap-4">
             <button
-              onClick={() => handleChoice(true, true)}
+              onClick={() => handleChoice('auto', 'highest')}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
             >
               🤖 Auto Deal
             </button>
             <button
-              onClick={() => handleChoice(false, true)}
+              onClick={() => handleChoice('manual', 'highest')}
               className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
             >
               👐 Manual Deal
@@ -140,13 +174,13 @@ const DealingChoicePanel = ({ socket, roomCode, playerId }) => {
           <h4 className="font-semibold text-gray-800 mb-2">Dealer Selection</h4>
           <div className="flex gap-4">
             <button
-              onClick={() => handleChoice(true, true)}
+              onClick={() => handleChoice('auto', 'highest')}
               className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg"
             >
               🏆 Highest Card Wins
             </button>
             <button
-              onClick={() => handleChoice(true, false)}
+              onClick={() => handleChoice('auto', 'lowest')}
               className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg"
             >
               🥉 Lowest Card Wins
@@ -158,9 +192,11 @@ const DealingChoicePanel = ({ socket, roomCode, playerId }) => {
   );
 };
 
+// Game Room Component
 const GameRoom = ({ room, player, roomCode, socket }) => {
   const currentPlayer = room?.players?.find(p => p._id === player._id);
   const isMyTurn = currentPlayer?.isCurrent && !currentPlayer.isEliminated;
+  const activePlayers = room?.players?.filter(p => !p.isEliminated) || [];
 
   const handlePlayCard = (card) => {
     if (socket && isMyTurn) {
@@ -179,8 +215,6 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
       socket.emit('game-action', { action: 'deal-next-card' });
     }
   };
-
-  const activePlayers = room?.players?.filter(p => !p.isEliminated) || [];
 
   return (
     <div>
@@ -257,7 +291,13 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
 
       {isMyTurn && currentPlayer && currentPlayer.cards && currentPlayer.cards.length > 0 && (
         <div className="mt-8">
-          <h3 className="text-white font-bold mb-4">Your Cards</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-white font-bold">Your Cards</h3>
+            <div className="flex items-center space-x-2 bg-yellow-200 px-3 py-1 rounded-full">
+              <div className="w-2 h-2 bg-yellow-600 rounded-full animate-ping"></div>
+              <span className="text-sm font-medium text-yellow-800">Your Turn</span>
+            </div>
+          </div>
           <div className="flex gap-2 flex-wrap">
             {currentPlayer.cards.map((card, i) => (
               <Card key={i} card={card} onClick={handlePlayCard} />
@@ -269,6 +309,7 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
   );
 };
 
+// Main App Component
 export default function App() {
   const [socket, setSocket] = useState(null);
   const [room, setRoom] = useState(null);
@@ -294,7 +335,7 @@ export default function App() {
     });
 
     newSocket.on('connect_error', (err) => {
-      console.error('Socket error:', err);
+      console.error('Socket connection error:', err);
       setError('Failed to connect to server');
     });
 
@@ -312,6 +353,8 @@ export default function App() {
   }, []);
 
   const createRoom = async (playerName) => {
+    setLoading(true);
+    setError('');
     try {
       const serverUrl = process.env.NODE_ENV === 'production'
         ? 'https://mgt-toozabackend.onrender.com'
@@ -323,9 +366,12 @@ export default function App() {
         body: JSON.stringify({ playerName: playerName.trim() })
       });
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Network error' }));
+        throw new Error(errorData.error || `HTTP ${res.status}`);
+      }
 
+      const data = await res.json();
       if (data.success) {
         setPlayer({ _id: data.playerId, name: playerName });
         setRoomCode(data.roomCode);
@@ -335,10 +381,14 @@ export default function App() {
       }
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   const joinRoom = async (playerName, code) => {
+    setLoading(true);
+    setError('');
     try {
       const serverUrl = process.env.NODE_ENV === 'production'
         ? 'https://mgt-toozabackend.onrender.com'
@@ -350,9 +400,12 @@ export default function App() {
         body: JSON.stringify({ playerName: playerName.trim(), roomCode: code })
       });
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Network error' }));
+        throw new Error(errorData.error || `HTTP ${res.status}`);
+      }
 
+      const data = await res.json();
       if (data.success) {
         setPlayer({ _id: data.playerId, name: playerName });
         setRoomCode(code);
@@ -362,6 +415,8 @@ export default function App() {
       }
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
