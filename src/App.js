@@ -1,7 +1,8 @@
-// App.jsv4deepseek
+// App.js
 import { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 
+// AI Players Configuration
 const AI_PLAYERS = {
   otu: { name: 'Otu', level: 'beginner', avatar: '🤖' },
   ase: { name: 'Ase', level: 'beginner', avatar: '🎭' },
@@ -10,6 +11,7 @@ const AI_PLAYERS = {
   agba: { name: 'Agba', level: 'advanced', avatar: '👑' }
 };
 
+// Lobby Component
 const Lobby = ({ onJoin }) => {
   const [playerName, setPlayerName] = useState('');
   const [roomCode, setRoomCode] = useState('');
@@ -34,6 +36,7 @@ const Lobby = ({ onJoin }) => {
               className="w-full p-3 rounded-lg border-2 border-gray-300 focus:ring-green-500 focus:border-green-500"
               placeholder="Enter your name"
               onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
+              required
             />
           </div>
           <div>
@@ -60,17 +63,26 @@ const Lobby = ({ onJoin }) => {
   );
 };
 
+// Card Component with Color
 const Card = ({ card, onClick, disabled, selected }) => {
-  // Determine card color based on suit
-  const isRed = card.suit === '♥' || card.suit === '♦';
-  const suitColor = isRed ? 'text-red-600' : 'text-black';
-  const bgColor = isRed ? 'bg-red-50' : 'bg-white';
-  
+  const suitColor = card.suit === '♥' || card.suit === '♦' ? 'text-red-600' : 'text-black';
+
   return (
     <button
-      onClick={() => !disabled && onClick && onClick(card)}
+      onClick={() => {
+        if (disabled) {
+          console.warn('Card click blocked: disabled');
+          return;
+        }
+        if (!card?.id) {
+          console.error('Card click failed: missing card ID', card);
+          return;
+        }
+        console.log('Card clicked:', card);
+        onClick(card);
+      }}
       disabled={disabled}
-      className={`relative ${bgColor} rounded-xl shadow-lg border-2 w-20 h-28 transition-all duration-200 ${
+      className={`relative bg-white rounded-xl shadow-lg border-2 w-20 h-28 transition-all duration-200 ${
         selected ? 'ring-4 ring-blue-400 -translate-y-3 z-10' : 'hover:shadow-xl hover:-translate-y-1'
       } ${disabled ? 'opacity-60' : 'hover:scale-105'}`}
     >
@@ -87,14 +99,21 @@ const Card = ({ card, onClick, disabled, selected }) => {
   );
 };
 
+// Player Display Component
 const PlayerDisplay = ({ player, isCurrentPlayer }) => {
   const icon = Object.values(AI_PLAYERS).find(ai => ai.name === player.username)?.avatar || '👤';
+
   return (
     <div className={`p-4 rounded-xl border-2 ${
       isCurrentPlayer ? 'bg-yellow-100 border-yellow-400 shadow-lg' : 'bg-white border-gray-200'
     } ${player.isEliminated ? 'opacity-60' : ''}`}>
       <div className="flex items-center space-x-3">
-        <span className="text-3xl">{icon}</span>
+        <div className="relative">
+          <span className="text-3xl">{icon}</span>
+          {isCurrentPlayer && !player.isEliminated && (
+            <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-ping"></div>
+          )}
+        </div>
         <div>
           <div className="font-bold text-gray-800">{player.username}</div>
           <div className="text-sm text-gray-600">
@@ -106,12 +125,14 @@ const PlayerDisplay = ({ player, isCurrentPlayer }) => {
   );
 };
 
+// Dealing Choice Panel (Dealer Only)
 const DealingChoicePanel = ({ socket, roomCode, playerId }) => {
-  const handleChoice = (autoDeal, highCard) => {
+  const handleChoice = (mode, selection) => {
+    console.log('Setting dealing mode:', mode, selection);
     socket.emit('game-action', {
       action: 'set-dealing-mode',
-      autoDeal,
-      highCard,
+      mode,
+      selection,
       playerId
     });
   };
@@ -119,38 +140,35 @@ const DealingChoicePanel = ({ socket, roomCode, playerId }) => {
   return (
     <div className="bg-white/90 p-6 rounded-xl shadow-lg mb-6">
       <h3 className="text-xl font-bold text-gray-800 mb-4">🃏 Dealer Options</h3>
-      <p className="text-gray-700 mb-4">Choose dealing style:</p>
-      
       <div className="space-y-4">
         <div>
           <h4 className="font-semibold text-gray-800 mb-2">Dealing Mode</h4>
           <div className="flex gap-4">
             <button
-              onClick={() => handleChoice(true, true)}
+              onClick={() => handleChoice('auto', 'highest')}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
             >
               🤖 Auto Deal
             </button>
             <button
-              onClick={() => handleChoice(false, true)}
+              onClick={() => handleChoice('manual', 'highest')}
               className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
             >
               👐 Manual Deal
             </button>
           </div>
         </div>
-
         <div>
           <h4 className="font-semibold text-gray-800 mb-2">Dealer Selection</h4>
           <div className="flex gap-4">
             <button
-              onClick={() => handleChoice(true, true)}
+              onClick={() => handleChoice('auto', 'highest')}
               className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg"
             >
               🏆 Highest Card Wins
             </button>
             <button
-              onClick={() => handleChoice(true, false)}
+              onClick={() => handleChoice('auto', 'lowest')}
               className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg"
             >
               🥉 Lowest Card Wins
@@ -162,21 +180,27 @@ const DealingChoicePanel = ({ socket, roomCode, playerId }) => {
   );
 };
 
+// Game Room Component
 const GameRoom = ({ room, player, roomCode, socket }) => {
   const currentPlayer = room?.players?.find(p => p._id === player._id);
   const isMyTurn = currentPlayer?.isCurrent && !currentPlayer.isEliminated;
-
-  // Add this useEffect to ensure cards are visible
-  useEffect(() => {
-    if (currentPlayer && currentPlayer.cards && currentPlayer.cards.length > 0) {
-      console.log("Player cards:", currentPlayer.cards);
-    }
-  }, [currentPlayer]);
+  const activePlayers = room?.players?.filter(p => !p.isEliminated) || [];
 
   const handlePlayCard = (card) => {
-    if (socket && isMyTurn) {
-      socket.emit('game-action', { action: 'playCard', cardId: card.id });
+    console.log('Attempting to play card:', card);
+    if (!socket?.connected) {
+      console.error('Socket not connected');
+      return;
     }
+    if (!isMyTurn) {
+      console.warn('Not your turn');
+      return;
+    }
+    if (!card?.id) {
+      console.error('Invalid card ID');
+      return;
+    }
+    socket.emit('game-action', { action: 'playCard', cardId: card.id });
   };
 
   const handleStartGame = () => {
@@ -191,8 +215,6 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
     }
   };
 
-  const activePlayers = room?.players?.filter(p => !p.isEliminated) || [];
-
   return (
     <div>
       <header className="flex justify-between items-center mb-6 text-white">
@@ -204,15 +226,6 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
           Leave Room
         </button>
       </header>
-
-      {/* Add a turn indicator */}
-      {room.status === 'playing' && (
-        <div className="bg-blue-600 text-white p-3 rounded mb-4 text-center">
-          {isMyTurn ? 
-            "🎮 It's YOUR turn!" : 
-            `👀 It's ${room.players.find(p => p.isCurrent)?.username}'s turn`}
-        </div>
-      )}
 
       {/* Dealer Choice Panel */}
       {room.status === 'waiting' && currentPlayer?.isDealer && (
@@ -259,11 +272,7 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
               return (
                 <button
                   key={key}
-                  onClick={() => socket.emit('manage-ai', { 
-                    action: isAdded ? 'remove' : 'add', 
-                    aiKey: key,
-                    roomCode: roomCode 
-                  })}
+                  onClick={() => socket.emit('manage-ai', { action: isAdded ? 'remove' : 'add', aiKey: key })}
                   disabled={room.players.length >= 6 && !isAdded}
                   className={`w-full p-2 rounded text-sm transition ${
                     isAdded
@@ -281,7 +290,13 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
 
       {isMyTurn && currentPlayer && currentPlayer.cards && currentPlayer.cards.length > 0 && (
         <div className="mt-8">
-          <h3 className="text-white font-bold mb-4">Your Cards</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-white font-bold">Your Cards</h3>
+            <div className="flex items-center space-x-2 bg-yellow-200 px-3 py-1 rounded-full">
+              <div className="w-2 h-2 bg-yellow-600 rounded-full animate-ping"></div>
+              <span className="text-sm font-medium text-yellow-800">Your Turn</span>
+            </div>
+          </div>
           <div className="flex gap-2 flex-wrap">
             {currentPlayer.cards.map((card, i) => (
               <Card key={i} card={card} onClick={handlePlayCard} />
@@ -293,6 +308,7 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
   );
 };
 
+// Main App Component
 export default function App() {
   const [socket, setSocket] = useState(null);
   const [room, setRoom] = useState(null);
@@ -313,20 +329,24 @@ export default function App() {
     });
 
     newSocket.on('connect', () => {
-      console.log('Socket connected');
+      console.log('✅ Socket connected:', newSocket.id);
       setError(null);
     });
 
     newSocket.on('connect_error', (err) => {
-      console.error('Socket error:', err);
+      console.error('❌ Socket connection error:', err);
       setError('Failed to connect to server');
     });
 
     newSocket.on('game-state', (state) => {
-      if (state) setRoom(state);
+      if (state) {
+        console.log('🔄 Received game state:', state);
+        setRoom(state);
+      }
     });
 
     newSocket.on('error', (data) => {
+      console.error('❌ Server error:', data.message || data);
       setError(data.message || 'An error occurred');
     });
 
@@ -358,6 +378,7 @@ export default function App() {
         throw new Error(data.error || 'Failed to create room');
       }
     } catch (err) {
+      console.error('❌ Create room error:', err);
       setError(err.message);
     }
   };
@@ -385,6 +406,7 @@ export default function App() {
         throw new Error(data.error || 'Failed to join room');
       }
     } catch (err) {
+      console.error('❌ Join room error:', err);
       setError(err.message);
     }
   };
