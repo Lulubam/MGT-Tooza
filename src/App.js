@@ -1,4 +1,4 @@
-// App.js
+// App.jsv5qwen
 import { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 
@@ -125,61 +125,6 @@ const PlayerDisplay = ({ player, isCurrentPlayer }) => {
   );
 };
 
-// Dealing Choice Panel (Dealer Only)
-const DealingChoicePanel = ({ socket, roomCode, playerId }) => {
-  const handleChoice = (mode, selection) => {
-    console.log('Setting dealing mode:', mode, selection);
-    socket.emit('game-action', {
-      action: 'set-dealing-mode',
-      mode,
-      selection,
-      playerId
-    });
-  };
-
-  return (
-    <div className="bg-white/90 p-6 rounded-xl shadow-lg mb-6">
-      <h3 className="text-xl font-bold text-gray-800 mb-4">🃏 Dealer Options</h3>
-      <div className="space-y-4">
-        <div>
-          <h4 className="font-semibold text-gray-800 mb-2">Dealing Mode</h4>
-          <div className="flex gap-4">
-            <button
-              onClick={() => handleChoice('auto', 'highest')}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
-            >
-              🤖 Auto Deal
-            </button>
-            <button
-              onClick={() => handleChoice('manual', 'highest')}
-              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
-            >
-              👐 Manual Deal
-            </button>
-          </div>
-        </div>
-        <div>
-          <h4 className="font-semibold text-gray-800 mb-2">Dealer Selection</h4>
-          <div className="flex gap-4">
-            <button
-              onClick={() => handleChoice('auto', 'highest')}
-              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg"
-            >
-              🏆 Highest Card Wins
-            </button>
-            <button
-              onClick={() => handleChoice('auto', 'lowest')}
-              className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg"
-            >
-              🥉 Lowest Card Wins
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // Game Room Component
 const GameRoom = ({ room, player, roomCode, socket }) => {
   const currentPlayer = room?.players?.find(p => p._id === player._id);
@@ -209,12 +154,6 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
     }
   };
 
-  const handleDealCard = () => {
-    if (socket) {
-      socket.emit('game-action', { action: 'deal-next-card' });
-    }
-  };
-
   return (
     <div>
       <header className="flex justify-between items-center mb-6 text-white">
@@ -226,25 +165,6 @@ const GameRoom = ({ room, player, roomCode, socket }) => {
           Leave Room
         </button>
       </header>
-
-      {/* Dealer Choice Panel */}
-      {room.status === 'waiting' && currentPlayer?.isDealer && (
-        <DealingChoicePanel socket={socket} roomCode={roomCode} playerId={player._id} />
-      )}
-
-      {/* Manual Dealing */}
-      {room.gamePhase === 'manual-dealing' && (
-        <div className="bg-white/90 p-4 rounded-xl shadow-lg mb-4 text-center">
-          <h3 className="font-bold text-gray-800 mb-2">🎴 Manual Dealing</h3>
-          <p>Next to deal: <strong>{room.nextPlayerToDeal}</strong></p>
-          <button
-            onClick={handleDealCard}
-            className="mt-3 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
-          >
-            Deal Next Card
-          </button>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
@@ -315,6 +235,7 @@ export default function App() {
   const [player, setPlayer] = useState(null);
   const [roomCode, setRoomCode] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const serverUrl = process.env.NODE_ENV === 'production'
@@ -350,12 +271,18 @@ export default function App() {
       setError(data.message || 'An error occurred');
     });
 
+    newSocket.on('game-message', (data) => {
+      console.log('💬 Game message:', data.message);
+    });
+
     setSocket(newSocket);
 
     return () => newSocket.close();
   }, []);
 
   const createRoom = async (playerName) => {
+    setLoading(true);
+    setError('');
     try {
       const serverUrl = process.env.NODE_ENV === 'production'
         ? 'https://mgt-toozabackend.onrender.com'
@@ -380,10 +307,14 @@ export default function App() {
     } catch (err) {
       console.error('❌ Create room error:', err);
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   const joinRoom = async (playerName, code) => {
+    setLoading(true);
+    setError('');
     try {
       const serverUrl = process.env.NODE_ENV === 'production'
         ? 'https://mgt-toozabackend.onrender.com'
@@ -408,6 +339,8 @@ export default function App() {
     } catch (err) {
       console.error('❌ Join room error:', err);
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
